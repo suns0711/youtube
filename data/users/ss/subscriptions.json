@@ -5,12 +5,14 @@
     "handle": "@NBA",
     "subscriberLabel": "24M subs",
     "avatarUrl": "https://yt3.googleusercontent.com/h6d3o-JtmkNvjgW8yWFe2Nu-fEjZH0vJzcRq9enXsq9JHBHlGPbS3-ycstebKvDMXGTzzzHM=s0",
-    "tags": [],
+    "tags": [
+      "NBA"
+    ],
     "notificationsMuted": true,
     "channelUrl": "https://www.youtube.com/channel/UCWJ2lWNubArHWmf3FIHbfcQ",
     "description": "The NBA is the premier professional basketball league in the United States and Canada. The league is truly global, with games and programming in 215 countries and territories in 47 languages. The NBA consists of 30 teams. The NBA offers real time access to live regular season NBA games with a subscription to NBA LEAGUE PASS, available globally for TV, broadband, and mobile.  Real-time Stats, Scores, Highlights and more are available to fans on web and mobile with the NBA App. \n\nFor news, stories, highlights and more, go to our official website at https://app.link.nba.com/e/NBA_site",
     "videoCountLabel": "—",
-    "updatedAt": 1774504365380
+    "updatedAt": 1774528406098
   },
   {
     "id": "c533427b-a1ae-450b-9310-3ecf40874ee5",

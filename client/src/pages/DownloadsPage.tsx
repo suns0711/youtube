@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   clearAllDownloadJobs,
@@ -9,10 +9,11 @@ import {
   openDownloadDirInFileManager,
   pickDownloadDirWithDialog,
   startDownload,
+  suggestDownloadOutput,
   type DownloadJob,
 } from '../api'
 import { resolveTagMappedDownloadPath } from '../lib/resolveTagDownloadPath'
-import { youtubeIdFromUrl } from '../util'
+import { isAllowedYoutubeUrl, youtubeIdFromUrl } from '../util'
 import { HeaderStudioUser } from '../components/HeaderStudioUser'
 
 const QUALITIES: { id: string; label: string }[] = [
@@ -43,6 +44,61 @@ function displayTitle(job: DownloadJob): string {
   } catch {
     return job.url.slice(0, 48)
   }
+}
+
+/** 用于判断队列是否指向同一视频或同一链接 */
+function normalizeJobUrlKey(raw: string): string {
+  const s = raw.trim()
+  const vid = youtubeIdFromUrl(s)
+  if (vid) return `video:${vid}`
+  try {
+    const u = new URL(s)
+    u.hash = ''
+    const path = u.pathname.replace(/\/+$/, '') || '/'
+    return `url:${u.hostname.toLowerCase()}${path}${u.search}`
+  } catch {
+    return `raw:${s}`
+  }
+}
+
+function normalizedPersistedTitle(title: string | null | undefined): string | null {
+  const t = String(title || '').trim()
+  if (t.length < 2) return null
+  return t.toLowerCase().replace(/\s+/g, ' ')
+}
+
+/** 统计「同一视频 / 同一链接」与「服务端已写入的相同标题」是否出现多次 */
+function computeDuplicateIndicators(jobs: DownloadJob[]): {
+  duplicateUrlKeys: Set<string>
+  duplicateTitleKeys: Set<string>
+} {
+  const urlCounts = new Map<string, number>()
+  const titleCounts = new Map<string, number>()
+  for (const j of jobs) {
+    const uk = normalizeJobUrlKey(j.url)
+    urlCounts.set(uk, (urlCounts.get(uk) || 0) + 1)
+    const tk = normalizedPersistedTitle(j.title)
+    if (tk) titleCounts.set(tk, (titleCounts.get(tk) || 0) + 1)
+  }
+  const duplicateUrlKeys = new Set<string>()
+  for (const [k, n] of urlCounts) {
+    if (n > 1) duplicateUrlKeys.add(k)
+  }
+  const duplicateTitleKeys = new Set<string>()
+  for (const [k, n] of titleCounts) {
+    if (n > 1) duplicateTitleKeys.add(k)
+  }
+  return { duplicateUrlKeys, duplicateTitleKeys }
+}
+
+function jobLooksDuplicate(
+  job: DownloadJob,
+  duplicateUrlKeys: Set<string>,
+  duplicateTitleKeys: Set<string>,
+): boolean {
+  if (duplicateUrlKeys.has(normalizeJobUrlKey(job.url))) return true
+  const tk = normalizedPersistedTitle(job.title)
+  return Boolean(tk && duplicateTitleKeys.has(tk))
 }
 
 /** 多任务时在 [minSec, maxSec] 内均匀随机，返回毫秒（含端点） */
@@ -107,6 +163,8 @@ export function DownloadsPage() {
   const [intervalMinSec, setIntervalMinSec] = useState(5)
   const [intervalMaxSec, setIntervalMaxSec] = useState(20)
   const [downloadPath, setDownloadPath] = useState('')
+  /** 默认目录等已从设置拉取（失败也会置 true，路径可能为空） */
+  const [settingsLoaded, setSettingsLoaded] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [jobs, setJobs] = useState<DownloadJob[]>([])
@@ -116,12 +174,30 @@ export function DownloadsPage() {
     totalMs: number
     leftMs: number
   } | null>(null)
+  const [urlSuggestHint, setUrlSuggestHint] = useState<string | null>(null)
+  /** 单行 YouTube 时：防抖 + suggest 接口未完成前为 true */
+  const [suggestPending, setSuggestPending] = useState(false)
+  const suggestReqId = useRef(0)
+
+  const trimmedUrlLines = useMemo(
+    () =>
+      url
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter((line) => line.length > 0),
+    [url],
+  )
+  const singleYoutubeLine =
+    trimmedUrlLines.length === 1 && isAllowedYoutubeUrl(trimmedUrlLines[0])
+      ? trimmedUrlLines[0]
+      : null
 
   useEffect(() => {
     setUrl(urlFromQuery)
   }, [urlFromQuery])
 
   useEffect(() => {
+    setSettingsLoaded(false)
     getStudioSettings()
       .then((s) => {
         if (channelTagsFromHome && channelTagsFromHome.length > 0) {
@@ -133,7 +209,45 @@ export function DownloadsPage() {
         }
       })
       .catch(() => setDownloadPath(''))
+      .finally(() => setSettingsLoaded(true))
   }, [channelTagsFromHome])
+
+  useEffect(() => {
+    if (!singleYoutubeLine) {
+      setUrlSuggestHint(null)
+      setSuggestPending(false)
+      return
+    }
+    // 先拿到设置里的默认目录，再 suggest，避免并行时 pathReady 卡在 settingsLoaded
+    if (!settingsLoaded) {
+      setSuggestPending(false)
+      return
+    }
+    setSuggestPending(true)
+    const id = ++suggestReqId.current
+    const timer = window.setTimeout(() => {
+      void suggestDownloadOutput(singleYoutubeLine)
+        .then((r) => {
+          if (id !== suggestReqId.current) return
+          if (r.matched && r.mappedTag && r.outputDir) {
+            setDownloadPath(r.outputDir)
+          }
+          setUrlSuggestHint(r.hint ?? null)
+        })
+        .catch(() => {
+          if (id !== suggestReqId.current) return
+          setUrlSuggestHint(null)
+        })
+        .finally(() => {
+          if (id !== suggestReqId.current) return
+          setSuggestPending(false)
+        })
+    }, 500)
+    return () => {
+      window.clearTimeout(timer)
+      setSuggestPending(false)
+    }
+  }, [singleYoutubeLine, settingsLoaded])
 
   const refreshList = () => {
     listJobs().then((r) => setJobs(r.jobs)).catch(() => {})
@@ -189,6 +303,34 @@ export function DownloadsPage() {
     [jobs],
   )
 
+  const { duplicateUrlKeys, duplicateTitleKeys } = useMemo(
+    () => computeDuplicateIndicators(jobs),
+    [jobs],
+  )
+  const hasDuplicateJobs =
+    duplicateUrlKeys.size > 0 || duplicateTitleKeys.size > 0
+
+  const hasActiveQueueDownload = useMemo(
+    () => jobs.some((j) => j.status === 'downloading'),
+    [jobs],
+  )
+  /**
+   * 多行/非 YouTube：必须已加载设置并得到默认路径。
+   * 单行 YouTube：设置加载后会有默认路径；识别结束后 suggestPending=false，
+   * 若仅依赖 settingsLoaded，识别完成时仍可能因竞态未满足，故用路径非空 + (!pending) 即可。
+   */
+  const pathReady =
+    Boolean(downloadPath.trim())
+    && (settingsLoaded || (Boolean(singleYoutubeLine) && !suggestPending))
+  const canSubmitByForm =
+    trimmedUrlLines.length > 0 && pathReady && !suggestPending
+
+  /** 无有效链接 / 目录未就绪 / 单行识别中 / 批量进行中 / 队列下载中 → 不可点 */
+  const startDownloadLocked =
+    busy
+    || hasActiveQueueDownload
+    || !canSubmitByForm
+
   const queueDownload = async () => {
     const lines = url
       .split(/\r?\n/)
@@ -196,6 +338,21 @@ export function DownloadsPage() {
       .filter((line) => line.length > 0)
     if (!lines.length) {
       setMsg('请至少输入一个 YouTube 链接（可多行，每行一个）。')
+      return
+    }
+    if (!settingsLoaded || !downloadPath.trim()) {
+      setMsg('保存路径尚未就绪，请稍候或到「设置」配置默认目录。')
+      return
+    }
+    if (suggestPending) {
+      setMsg('正在根据链接识别频道与目录，请稍候。')
+      return
+    }
+    if (
+      busy
+      || jobs.some((j) => j.status === 'downloading')
+    ) {
+      setMsg('当前有下载任务正在执行，请等待结束后再提交。')
       return
     }
     const lo = clampIntervalSec(intervalMinSec)
@@ -238,6 +395,9 @@ export function DownloadsPage() {
         prevJobId = jobId
         setPollIds((s) => new Set(s).add(jobId))
         refreshList()
+      }
+      if (prevJobId) {
+        await waitUntilJobTerminal(prevJobId)
       }
     } catch (e) {
       setMsg((e as Error).message)
@@ -427,8 +587,14 @@ export function DownloadsPage() {
                   </span>
                 </button>
               </div>
+              {urlSuggestHint ? (
+                <p className="text-[11px] leading-relaxed text-primary/90">
+                  {urlSuggestHint}
+                </p>
+              ) : null}
               <p className="text-[10px] leading-relaxed text-on-surface-variant/50">
-                路径与下载任务在运行后端的电脑上。点击图标将打开系统选文件夹并保存为默认目录；也可在{' '}
+                单行视频链接时会自动用 yt-dlp
+                识别频道并对照「频道」订阅：若该频道标签在设置里配置了保存目录，则把路径填到上方。路径与下载任务在运行后端的电脑上。点击图标将打开系统选文件夹并保存为默认目录；也可在{' '}
                 <button
                   type="button"
                   className="text-primary hover:underline"
@@ -454,9 +620,24 @@ export function DownloadsPage() {
 
             <button
               type="button"
-              disabled={busy}
+              disabled={startDownloadLocked}
+              title={
+                busy || hasActiveQueueDownload
+                  ? '当前有下载任务进行中'
+                  : trimmedUrlLines.length === 0
+                    ? '请先输入至少一条视频链接'
+                    : !settingsLoaded || !downloadPath.trim()
+                      ? '正在加载默认保存路径…'
+                      : suggestPending
+                        ? '正在识别频道与保存目录…'
+                        : undefined
+              }
               onClick={() => void queueDownload()}
-              className="flex w-full items-center justify-center gap-3 rounded-lg bg-gradient-to-r from-primary-container to-[#FF5540] py-4 font-black text-on-primary-container shadow-[0_4px_20px_rgba(255,85,64,0.3)] transition-all active:scale-[0.98] disabled:opacity-50 md:w-auto md:px-12"
+              className={`flex w-full items-center justify-center gap-3 rounded-lg py-4 font-black transition-colors md:w-auto md:px-12 ${
+                startDownloadLocked
+                  ? 'cursor-not-allowed bg-surface-container-highest text-on-surface-variant/50 shadow-none'
+                  : 'bg-gradient-to-r from-primary-container to-[#FF5540] text-on-primary-container shadow-[0_4px_20px_rgba(255,85,64,0.3)] active:scale-[0.98]'
+              }`}
             >
               <span
                 className="material-symbols-outlined"
@@ -516,6 +697,24 @@ export function DownloadsPage() {
               </button>
             </div>
 
+            {hasDuplicateJobs ? (
+              <div
+                className="flex gap-3 rounded-xl border border-primary/25 bg-primary/8 px-4 py-3 text-sm text-on-surface"
+                role="status"
+              >
+                <span
+                  className="material-symbols-outlined shrink-0 text-primary"
+                  aria-hidden
+                >
+                  info
+                </span>
+                <p className="min-w-0 leading-relaxed">
+                  队列中存在<strong className="text-primary">同名或同一视频</strong>
+                  的多个任务（相同链接 / 相同视频 ID，或已取得相同标题）。可能是重复提交，可删除多余条目避免占队列。
+                </p>
+              </div>
+            ) : null}
+
             <div className="grid grid-cols-1 gap-4">
               {orderedJobs.length === 0 ? (
                 <p className="text-sm text-on-surface-variant">
@@ -528,13 +727,20 @@ export function DownloadsPage() {
                 const isDone = job.status === 'complete'
                 const isErr = job.status === 'error'
                 const isWorking = job.status === 'downloading'
+                const dup = jobLooksDuplicate(
+                  job,
+                  duplicateUrlKeys,
+                  duplicateTitleKeys,
+                )
                 return (
                   <div
                     key={job.id}
-                    className={`group flex items-center gap-4 rounded-xl border border-outline-variant/10 p-4 transition-all sm:gap-6 md:p-4 ${
+                    className={`group flex items-center gap-4 rounded-xl border p-4 transition-all sm:gap-6 md:p-4 ${
                       isErr
-                        ? 'bg-error/5 border-error/20'
-                        : 'bg-surface-container-high hover:border-primary/30'
+                        ? 'border-error/20 bg-error/5'
+                        : dup
+                          ? 'border-primary/20 bg-primary/[0.06] hover:border-primary/30'
+                          : 'border-outline-variant/10 bg-surface-container-high hover:border-primary/30'
                     }`}
                   >
                     <div
@@ -564,9 +770,19 @@ export function DownloadsPage() {
                         <h4 className="truncate pr-2 font-bold text-on-surface">
                           {displayTitle(job)}
                         </h4>
-                        <span className="shrink-0 rounded bg-tertiary-container/10 px-2 py-0.5 font-mono text-[10px] text-tertiary-container">
-                          {qualityLabel(job.quality)}
-                        </span>
+                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+                          {dup ? (
+                            <span
+                              className="rounded bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary"
+                              title="与队列中其他任务指向同一视频或标题相同"
+                            >
+                              可能重复
+                            </span>
+                          ) : null}
+                          <span className="rounded bg-tertiary-container/10 px-2 py-0.5 font-mono text-[10px] text-tertiary-container">
+                            {qualityLabel(job.quality)}
+                          </span>
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <div className="h-1 w-full overflow-hidden rounded-full bg-surface-container-highest">

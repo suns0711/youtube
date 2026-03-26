@@ -24,6 +24,23 @@ export function relativeUploadLabel(
   return `${Math.floor(diffDays / 365)} years ago`
 }
 
+/** 与后台 isAllowedYoutubeUrl 一致，用于前端预判是否调用解析接口 */
+export function isAllowedYoutubeUrl(url: string): boolean {
+  try {
+    const u = new URL(url.trim())
+    const h = u.hostname.replace(/^www\./, '').toLowerCase()
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+    return (
+      h === 'youtube.com'
+      || h === 'youtu.be'
+      || h === 'm.youtube.com'
+      || h === 'music.youtube.com'
+    )
+  } catch {
+    return false
+  }
+}
+
 export function youtubeIdFromUrl(url: string): string | null {
   try {
     const u = new URL(url)

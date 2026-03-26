@@ -80,7 +80,7 @@ export function StudioSelect({
                   onClick={() => pick(opt)}
                   className={`w-full px-3 py-2 text-left text-xs transition-colors hover:bg-surface-container-high ${
                     selected
-                      ? 'bg-primary/12 font-semibold text-primary'
+                      ? 'bg-primary/24 font-semibold text-primary ring-1 ring-inset ring-primary/40'
                       : 'text-on-surface'
                   }`}
                 >

@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   clearAllDownloadJobs,
@@ -27,6 +33,63 @@ function qualityLabel(q: string): string {
   if (hit) return hit.label
   if (q === 'best') return '最佳'
   return q
+}
+
+/** 标签右侧 i（info）标识，悬停展示说明（支持链接等富文本） */
+function LabelWithHint({
+  htmlFor,
+  children,
+  hintSummary,
+  hint,
+  labelClassName,
+  hintHot,
+}: {
+  htmlFor?: string
+  children: ReactNode
+  hintSummary: string
+  hint: ReactNode
+  labelClassName?: string
+  /** 队列重复等需稍加提醒时高亮 i 按钮 */
+  hintHot?: boolean
+}) {
+  const labelCls =
+    labelClassName ??
+    'text-xs font-bold uppercase tracking-widest text-on-surface-variant/60'
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className={labelCls}>
+          {children}
+        </label>
+      ) : (
+        <span className={labelCls}>{children}</span>
+      )}
+      <span className="group/hint relative inline-flex align-middle">
+        <button
+          type="button"
+          className={`flex h-5 w-5 shrink-0 cursor-help items-center justify-center rounded-full border border-outline-variant/50 text-on-surface-variant transition-colors hover:border-primary/55 hover:bg-primary/12 hover:text-primary ${
+            hintHot
+              ? 'border-primary/45 bg-primary/10 text-primary ring-2 ring-primary/25'
+              : ''
+          }`}
+          aria-label={hintSummary}
+        >
+          <span
+            className="material-symbols-outlined text-[14px] leading-none"
+            aria-hidden
+          >
+            info
+          </span>
+        </button>
+        <div
+          className="pointer-events-none invisible absolute left-1/2 top-[calc(100%+6px)] z-[120] w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-xl border border-outline-variant/25 bg-surface-container-low p-3 text-left text-[11px] font-normal leading-relaxed normal-case tracking-normal text-on-surface shadow-xl opacity-0 transition-opacity duration-150 group-hover/hint:visible group-hover/hint:opacity-100 group-hover/hint:pointer-events-auto"
+          role="tooltip"
+        >
+          {hint}
+        </div>
+      </span>
+    </div>
+  )
 }
 
 function thumbForJob(job: DownloadJob): string | null {
@@ -423,7 +486,6 @@ export function DownloadsPage() {
 
   const clearAll = async () => {
     if (!orderedJobs.length) return
-    if (!window.confirm('确定清空下载队列中的所有任务？')) return
     try {
       await clearAllDownloadJobs()
       setPollIds(new Set())
@@ -470,17 +532,27 @@ export function DownloadsPage() {
               下载选项
             </h3>
             <div className="space-y-3">
-              <label
+              <LabelWithHint
                 htmlFor="download-url"
-                className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60"
+                hintSummary="视频链接：每行一条；多行按顺序排队，间隔见「批量间隔」"
+                hint={
+                  <div className="space-y-2">
+                    <p>
+                      每行填一个链接。多行时按顺序下载：上一条结束（含失败）后，再按「批量间隔」随机等待，然后发起下一条。
+                    </p>
+                    <p className="text-on-surface-variant">
+                      未识别出频道时，文件会落到默认目录下「未分类」等结构（与订阅/标签映射有关）。
+                    </p>
+                  </div>
+                }
               >
                 视频链接
-              </label>
+              </LabelWithHint>
               <textarea
                 id="download-url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="每行一个链接。多行时按顺序下载：上一条完成后，再按下方区间随机等待，然后发起下一条。https://www.youtube.com/watch?v=…"
+                placeholder="每行一个链接（多行将排队依次下载）"
                 rows={5}
                 className="custom-scrollbar w-full min-h-[140px] resize-y rounded-lg border-0 bg-surface-container-lowest px-4 py-4 font-mono text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/40 break-all"
               />
@@ -511,9 +583,17 @@ export function DownloadsPage() {
               </div>
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">
+                  <LabelWithHint
+                    hintSummary="批量间隔：仅多行时生效；上一条结束后的随机等待秒数"
+                    hint={
+                      <p>
+                        仅多行任务时：上一条下载结束（含失败）后，再在「下限～上限」之间随机等待，随后发起下一条。两数相同即固定间隔；均为 0
+                        则上一任务结束后立即提交下一条。
+                      </p>
+                    }
+                  >
                     批量间隔（秒）
-                  </label>
+                  </LabelWithHint>
                   <div className="flex items-center gap-2">
                     <input
                       id="interval-min"
@@ -548,18 +628,52 @@ export function DownloadsPage() {
                       className="min-w-0 flex-1 rounded-lg border-0 bg-surface-container-lowest px-3 py-2.5 font-mono text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                   </div>
-                  <p className="text-[10px] leading-relaxed text-on-surface-variant/50">
-                    仅多行时：上一条下载结束（含失败）后，再按两框区间随机等待，随后发起下一条。两数相同为固定间隔；均为 0
-                    则上一任务结束后立即提交下一条。
-                  </p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-3">
-              <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">
+              <LabelWithHint
+                hintSummary="保存路径：单行链接时用 yt-dlp 识别频道并对照订阅与标签目录；可改默认目录"
+                hint={
+                  <div className="space-y-2">
+                    {suggestPending ? (
+                      <p className="text-on-surface-variant">正在识别频道与保存目录…</p>
+                    ) : null}
+                    {urlSuggestHint ? (
+                      <p className="text-primary/95">{urlSuggestHint}</p>
+                    ) : null}
+                    <p>
+                      单行 YouTube 链接时会自动识别频道并对照「频道」订阅：若该频道标签在设置里映射了目录，会将路径填入上方框内。实际文件写在运行后端的电脑上。
+                    </p>
+                    <p className="break-all text-on-surface-variant">
+                      当前路径：{downloadPath || '加载中…'}
+                    </p>
+                    <div className="flex flex-wrap gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        className="text-primary hover:underline"
+                        onClick={() => {
+                          void openDownloadDirInFileManager().catch((e: Error) => {
+                            setMsg(e.message || '无法打开文件夹')
+                          })
+                        }}
+                      >
+                        在资源管理器中打开当前目录
+                      </button>
+                      <span className="text-on-surface-variant">·</span>
+                      <Link to="/settings" className="text-primary hover:underline">
+                        前往设置修改默认路径
+                      </Link>
+                    </div>
+                    <p className="text-on-surface-variant">
+                      左侧文件夹图标：在后端本机打开系统选目录对话框，并把所选路径存为默认目录。
+                    </p>
+                  </div>
+                }
+              >
                 保存路径
-              </label>
+              </LabelWithHint>
               <div className="flex w-full gap-2">
                 <div className="min-h-[44px] flex-1 whitespace-pre-wrap break-all rounded-lg bg-surface-container-lowest px-4 py-3 font-mono text-xs leading-relaxed text-on-surface-variant">
                   {downloadPath || '加载中…'}
@@ -587,31 +701,6 @@ export function DownloadsPage() {
                   </span>
                 </button>
               </div>
-              {urlSuggestHint ? (
-                <p className="text-[11px] leading-relaxed text-primary/90">
-                  {urlSuggestHint}
-                </p>
-              ) : null}
-              <p className="text-[10px] leading-relaxed text-on-surface-variant/50">
-                单行视频链接时会自动用 yt-dlp
-                识别频道并对照「频道」订阅：若该频道标签在设置里配置了保存目录，则把路径填到上方。路径与下载任务在运行后端的电脑上。点击图标将打开系统选文件夹并保存为默认目录；也可在{' '}
-                <button
-                  type="button"
-                  className="text-primary hover:underline"
-                  onClick={() => {
-                    void openDownloadDirInFileManager().catch((e: Error) => {
-                      setMsg(e.message || '无法打开文件夹')
-                    })
-                  }}
-                >
-                  资源管理器中打开当前目录
-                </button>
-                ，或前往{' '}
-                <Link to="/settings" className="text-primary hover:underline">
-                  设置
-                </Link>
-                中手动修改默认路径。
-              </p>
             </div>
 
             {msg ? (
@@ -681,13 +770,30 @@ export function DownloadsPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="flex items-end justify-between gap-4">
-              <h3 className="text-lg font-bold text-on-surface">
-                下载队列{' '}
-                <span className="ml-2 font-mono text-sm font-normal text-on-surface-variant/40">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <LabelWithHint
+                  hintHot={hasDuplicateJobs}
+                  hintSummary="下载队列与重复任务说明"
+                  labelClassName="text-lg font-bold text-on-surface"
+                  hint={
+                    <div className="space-y-2">
+                      <p>
+                        任务按顺序执行；进度与日志可在各卡片上查看。暂无任务时，在上方填写链接并点击「开始下载」。
+                      </p>
+                      <p>
+                        若队列里出现<strong className="text-primary">同名或同一视频</strong>
+                        的多条任务（相同链接 / 相同视频 ID，或已取得相同标题），可能是重复提交，可删除多余条目以免占队列。
+                      </p>
+                    </div>
+                  }
+                >
+                  下载队列
+                </LabelWithHint>
+                <span className="font-mono text-sm font-normal text-on-surface-variant/40">
                   {orderedJobs.length} 个任务
                 </span>
-              </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => void clearAll()}
@@ -696,24 +802,6 @@ export function DownloadsPage() {
                 清空队列
               </button>
             </div>
-
-            {hasDuplicateJobs ? (
-              <div
-                className="flex gap-3 rounded-xl border border-primary/25 bg-primary/8 px-4 py-3 text-sm text-on-surface"
-                role="status"
-              >
-                <span
-                  className="material-symbols-outlined shrink-0 text-primary"
-                  aria-hidden
-                >
-                  info
-                </span>
-                <p className="min-w-0 leading-relaxed">
-                  队列中存在<strong className="text-primary">同名或同一视频</strong>
-                  的多个任务（相同链接 / 相同视频 ID，或已取得相同标题）。可能是重复提交，可删除多余条目避免占队列。
-                </p>
-              </div>
-            ) : null}
 
             <div className="grid grid-cols-1 gap-4">
               {orderedJobs.length === 0 ? (

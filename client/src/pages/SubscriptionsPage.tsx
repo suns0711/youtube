@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAvailableTags } from '../AvailableTagsContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { HeaderStudioUser } from '../components/HeaderStudioUser'
@@ -36,13 +36,11 @@ function tagPillClass(i: number): string {
 }
 
 export function SubscriptionsPage() {
+  const [searchParams] = useSearchParams()
   const { refresh: refreshGlobalTags, tags: studioTagOptions } =
     useAvailableTags()
   const [channels, setChannels] = useState<SubscriptionChannel[]>([])
   const [loading, setLoading] = useState(true)
-  const [filterDraft, setFilterDraft] = useState('')
-  const [filterApplied, setFilterApplied] = useState('')
-  const [filterOpen, setFilterOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [addChannelUrl, setAddChannelUrl] = useState('')
   const [addErr, setAddErr] = useState<string | null>(null)
@@ -82,25 +80,34 @@ export function SubscriptionsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const { channels: ch } = await listSubscriptions({
-        filter: filterApplied || undefined,
-      })
+      const { channels: ch } = await listSubscriptions()
       setChannels(ch)
     } catch {
       setChannels([])
     } finally {
       setLoading(false)
     }
-  }, [filterApplied])
+  }, [])
 
   useEffect(() => {
     void load()
   }, [load])
 
-  const applyFilter = () => {
-    setFilterApplied(filterDraft.trim())
-    setFilterOpen(false)
-  }
+  /** 从首页等带入 ?channel=id：滚动到卡片并短暂高亮 */
+  useEffect(() => {
+    const raw = (searchParams.get('channel') || '').trim()
+    if (!raw || loading || channels.length === 0) return
+    const hit = channels.some((c) => c.id === raw)
+    if (!hit) return
+    const frame = requestAnimationFrame(() => {
+      document
+        .getElementById(`sub-channel-${raw}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [searchParams, loading, channels])
+
+  const focusChannelId = (searchParams.get('channel') || '').trim()
 
   const toggleNotifications = async (c: SubscriptionChannel) => {
     try {
@@ -232,12 +239,6 @@ export function SubscriptionsPage() {
     }
   }
 
-  const allTagSuggestions = useMemo(() => {
-    const s = new Set<string>()
-    channels.forEach((c) => c.tags.forEach((t) => s.add(t)))
-    return [...s].sort()
-  }, [channels])
-
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-surface font-body text-on-surface selection:bg-primary-container selection:text-on-primary-container">
       <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
@@ -258,61 +259,7 @@ export function SubscriptionsPage() {
       </header>
 
       <section className="mt-8 px-6 pb-20 md:px-10">
-        <div className="relative z-[25] mb-12 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setFilterOpen((o) => !o)}
-              className="flex items-center gap-2 rounded-lg border border-outline-variant/20 px-5 py-2.5 text-sm font-semibold text-on-surface-variant transition-all hover:bg-surface-container-high"
-            >
-              <span className="material-symbols-outlined text-lg">
-                filter_list
-              </span>
-              筛选
-            </button>
-            {filterOpen ? (
-              <div className="absolute left-0 top-full z-40 mt-2 w-72 rounded-xl border border-outline-variant/20 bg-surface-container-low p-4 shadow-xl">
-                <input
-                  value={filterDraft}
-                  onChange={(e) => setFilterDraft(e.target.value)}
-                  placeholder="标签或频道名称…"
-                  className="mb-3 w-full rounded-lg border-0 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface"
-                />
-                <div className="mb-3 flex flex-wrap gap-1">
-                  {allTagSuggestions.slice(0, 8).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setFilterDraft(t)}
-                      className="rounded-full border border-outline-variant/15 px-2 py-0.5 text-[10px] text-on-surface-variant hover:border-primary/30"
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={applyFilter}
-                    className="flex-1 rounded-lg bg-surface-container-high py-2 text-xs font-bold text-primary"
-                  >
-                    应用
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFilterDraft('')
-                      setFilterApplied('')
-                      setFilterOpen(false)
-                    }}
-                    className="rounded-lg px-3 py-2 text-xs text-on-surface-variant"
-                  >
-                    清除
-                  </button>
-                </div>
-              </div>
-            ) : null}
-          </div>
+        <div className="relative z-[25] mb-12 flex justify-end">
           <button
             type="button"
             onClick={() => {
@@ -326,12 +273,6 @@ export function SubscriptionsPage() {
           </button>
         </div>
 
-        {filterApplied ? (
-          <p className="mb-4 text-xs text-on-surface-variant">
-            当前筛选：<span className="text-primary">{filterApplied}</span>
-          </p>
-        ) : null}
-
         {loading ? (
           <p className="text-on-surface-variant">正在加载频道…</p>
         ) : null}
@@ -339,9 +280,14 @@ export function SubscriptionsPage() {
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {channels.map((c) => (
             <div
+              id={`sub-channel-${c.id}`}
               key={c.id}
-              className={`group rounded-xl border-t border-surface-bright/20 bg-surface-container-high p-6 shadow-xl transition-transform hover:scale-[1.02] ${
+              className={`group rounded-xl border-t border-surface-bright/20 bg-surface-container-high p-6 shadow-xl transition-[transform,box-shadow] hover:scale-[1.02] ${
                 menuId === c.id ? 'relative z-[20]' : ''
+              } ${
+                focusChannelId === c.id
+                  ? 'ring-2 ring-primary/55 shadow-[0_0_0_1px_rgba(255,180,168,0.25)]'
+                  : ''
               }`}
             >
               <div
@@ -349,7 +295,11 @@ export function SubscriptionsPage() {
                   c.description ? 'mb-3' : 'mb-6'
                 }`}
               >
-                <div className="flex min-w-0 flex-1 gap-4">
+                <Link
+                  to={`/subscriptions?channel=${encodeURIComponent(c.id)}`}
+                  className="flex min-w-0 flex-1 gap-4 rounded-xl p-1 -m-1 outline-none transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-2 focus-visible:ring-primary/50"
+                  title="在本页定位到此频道"
+                >
                   <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-primary/20 p-0.5">
                     {c.avatarUrl ? (
                       <img
@@ -363,13 +313,15 @@ export function SubscriptionsPage() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-on-surface">{c.name}</h3>
+                    <h3 className="font-bold text-on-surface group-hover:text-primary">
+                      {c.name}
+                    </h3>
                     <p className="font-mono text-xs tracking-tighter text-on-surface-variant/60">
                       {c.handle} • {c.subscriberLabel}
                       {c.videoCountLabel ? ` • ${c.videoCountLabel}` : ''}
                     </p>
                   </div>
-                </div>
+                </Link>
                 <div className="relative shrink-0">
                   <button
                     type="button"
@@ -382,17 +334,6 @@ export function SubscriptionsPage() {
                   </button>
                   {menuId === c.id ? (
                     <div className="absolute right-0 top-8 z-[35] w-40 rounded-lg border border-outline-variant/20 bg-surface-container-low py-1 shadow-xl">
-                      {c.channelUrl ? (
-                        <a
-                          href={c.channelUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="block px-3 py-2 text-xs text-on-surface-variant hover:bg-surface-container-high"
-                          onClick={() => setMenuId(null)}
-                        >
-                          打开频道页
-                        </a>
-                      ) : null}
                       <button
                         type="button"
                         onClick={() => openRemoveConfirm(c)}
@@ -419,7 +360,7 @@ export function SubscriptionsPage() {
                   </span>
                 ))}
               </div>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
                   onClick={() => openTagsEditor(c)}
@@ -430,23 +371,28 @@ export function SubscriptionsPage() {
                 </button>
                 <button
                   type="button"
+                  role="switch"
+                  aria-checked={!c.notificationsMuted}
                   onClick={() => void toggleNotifications(c)}
-                  className={`flex items-center justify-center rounded-lg border px-4 py-2 text-xs font-bold transition-colors ${
-                    c.notificationsMuted
-                      ? 'border-error/20 text-error hover:bg-error-container/20'
-                      : 'border-error/20 text-error hover:bg-error-container/20'
-                  }`}
                   title={
                     c.notificationsMuted
-                      ? '已关闭：该频道不显示在首页'
-                      : '已开启：在首页展示该频道更新'
+                      ? '已关闭：该频道不显示在首页，点击开启'
+                      : '已开启：在首页展示该频道更新，点击关闭'
                   }
+                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 p-0.5 transition-[box-shadow,background-color,border-color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 ${
+                    c.notificationsMuted
+                      ? 'border-outline-variant/40 bg-surface-container-highest shadow-none'
+                      : 'border-primary bg-primary/50 shadow-[0_0_20px_rgba(255,72,55,0.55),inset_0_1px_0_rgba(255,255,255,0.12)]'
+                  }`}
                 >
-                  <span className="material-symbols-outlined text-sm">
-                    {c.notificationsMuted
-                      ? 'notifications_off'
-                      : 'notifications_active'}
-                  </span>
+                  <span
+                    className={`block h-6 w-6 rounded-full shadow-md transition-[transform,background-color] duration-200 ease-out ${
+                      c.notificationsMuted
+                        ? 'translate-x-0 bg-on-surface'
+                        : 'translate-x-[1.25rem] bg-white ring-1 ring-primary/25'
+                    }`}
+                    aria-hidden
+                  />
                 </button>
               </div>
             </div>

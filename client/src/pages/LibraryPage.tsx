@@ -9,8 +9,14 @@ import {
 import { HeaderStudioUser } from '../components/HeaderStudioUser'
 import { VideoCard } from '../components/VideoCard'
 import { VideoModal } from '../components/VideoModal'
+import { useAvailableTags } from '../AvailableTagsContext'
 import { DEMO_FEED_VIDEOS } from '../data/demoFeed'
 import { buildDownloadsHref } from '../lib/downloadsNavigation'
+import {
+  resolveTagAccentId,
+  tagAccentSidebarClass,
+  tagFeedFilterSelectedOverlayClass,
+} from '../lib/tagAccentStyles'
 
 function tagsMatchFilter(filterRaw: string, tag: string): boolean {
   return filterRaw.trim().toLowerCase() === tag.trim().toLowerCase()
@@ -33,6 +39,7 @@ function sortVideosInSection(videos: VideoItem[]): VideoItem[] {
 }
 
 export function LibraryPage() {
+  const { tagAccentByLabel } = useAvailableTags()
   const [params, setParams] = useSearchParams()
   const qParam = params.get('q') || ''
   const feedTagFilter = (params.get('feedTag') || '').trim()
@@ -193,7 +200,7 @@ export function LibraryPage() {
                     return (
                       <p
                         key={section.subscriptionId}
-                        className="mb-10 rounded-lg border border-error/25 bg-error/5 px-4 py-3 text-sm text-error"
+                        className="mb-8 rounded-lg border border-error/25 bg-error/5 px-4 py-3 text-sm text-error"
                       >
                         <span className="font-semibold text-on-surface">
                           {section.channelName}
@@ -207,7 +214,7 @@ export function LibraryPage() {
                     return (
                       <p
                         key={section.subscriptionId}
-                        className="mb-10 text-sm text-on-surface-variant"
+                        className="mb-8 text-sm text-on-surface-variant"
                       >
                         {section.channelName}：暂无视频条目。
                       </p>
@@ -216,67 +223,68 @@ export function LibraryPage() {
                   return (
                     <section
                       key={section.subscriptionId}
-                      className="mb-20 border-b border-outline-variant/10 pb-16 last:mb-0 last:border-0 last:pb-0"
+                      className="mb-10 border-b border-outline-variant/10 pb-8 last:mb-0 last:border-0 last:pb-0"
                     >
-                      <div className="mb-6 flex flex-wrap items-center gap-4">
-                        {section.avatarUrl ? (
-                          <img
-                            src={section.avatarUrl}
-                            alt=""
-                            className="h-11 w-11 shrink-0 rounded-full border border-outline-variant/15 object-cover"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="h-11 w-11 shrink-0 rounded-full bg-surface-container-highest" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-xl font-bold tracking-tight text-on-surface">
-                            {section.channelName}
-                          </h3>
-                          <p className="text-sm text-on-surface-variant">
-                            {section.handle}
-                          </p>
-                          {(section.tags ?? []).length > 0 ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {(section.tags ?? []).map((t) => (
+                      <div className="mb-4 flex min-w-0 flex-col gap-3">
+                        <Link
+                          to={`/subscriptions?channel=${encodeURIComponent(section.subscriptionId)}`}
+                          className="group/ch flex w-fit max-w-full items-center gap-4 rounded-xl border border-transparent px-1 py-1 outline-none transition-colors hover:border-outline-variant/20 hover:bg-surface-container-high/50 focus-visible:ring-2 focus-visible:ring-primary/45"
+                          title="在频道页打开此订阅"
+                        >
+                          {section.avatarUrl ? (
+                            <img
+                              src={section.avatarUrl}
+                              alt=""
+                              className="h-11 w-11 shrink-0 rounded-full border border-outline-variant/15 object-cover"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="h-11 w-11 shrink-0 rounded-full bg-surface-container-highest" />
+                          )}
+                          <div className="min-w-0 text-left">
+                            <h3 className="text-xl font-bold tracking-tight text-on-surface group-hover/ch:text-primary">
+                              {section.channelName}
+                            </h3>
+                            <p className="text-sm text-on-surface-variant">
+                              {section.handle}
+                            </p>
+                          </div>
+                        </Link>
+                        {(section.tags ?? []).length > 0 ? (
+                          <div className="flex flex-wrap gap-2 pl-0 sm:pl-[3.75rem]">
+                            {(section.tags ?? []).map((t) => {
+                              const accent = resolveTagAccentId(
+                                String(t),
+                                tagAccentByLabel,
+                              )
+                              const cls = tagAccentSidebarClass(accent)
+                              const selected = tagsMatchFilter(
+                                feedTagFilter,
+                                String(t),
+                              )
+                              return (
                                 <button
                                   key={`${section.subscriptionId}-${t}`}
                                   type="button"
                                   onClick={() => selectFeedTag(t)}
-                                  className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-colors ${
-                                    tagsMatchFilter(feedTagFilter, String(t))
-                                      ? 'border-primary/40 bg-primary/15 text-primary'
-                                      : 'border-outline-variant/20 text-on-surface-variant hover:border-primary/35'
-                                  }`}
+                                    className={`cursor-pointer rounded border px-2 py-1 text-[11px] font-medium transition-all ${cls} ${
+                                      selected
+                                        ? tagFeedFilterSelectedOverlayClass
+                                        : ''
+                                    }`}
                                 >
                                   {t}
                                 </button>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                        {section.channelUrl ? (
-                          <a
-                            href={section.channelUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="shrink-0 rounded-lg border border-outline-variant/20 px-3 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-surface-container-high"
-                          >
-                            打开频道
-                          </a>
-                        ) : (
-                          <Link
-                            to="/subscriptions"
-                            className="shrink-0 text-xs font-semibold text-primary hover:underline"
-                          >
-                            管理频道
-                          </Link>
-                        )}
+                              )
+                            })}
+                          </div>
+                        ) : null}
                       </div>
-                      <div className="grid grid-cols-1 gap-x-8 gap-y-10 md:grid-cols-3">
+                      <div className="grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-3">
                         {rowVideos.map((v, i) => (
                           <VideoCard
                             key={`${section.subscriptionId}-${v.id}-${i}`}
+                            hideChannelMeta
                             video={{
                               ...v,
                               feedChannelTags: section.tags ?? [],
@@ -317,6 +325,7 @@ export function LibraryPage() {
                   {DEMO_FEED_VIDEOS.map((v) => (
                     <VideoCard
                       key={v.sample ? `sample-${v.id}` : v.id}
+                      hideChannelMeta
                       video={v}
                       onPlay={setModal}
                       onDownload={(vid) =>

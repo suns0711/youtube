@@ -95,7 +95,7 @@ export function HeaderStudioUser({ size = 'md', className = '' }: Props) {
               onClick={() => switchUser(id)}
               className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-container-high ${
                 id === studioUser
-                  ? 'bg-primary/10 font-semibold text-primary'
+                  ? 'bg-primary/22 font-semibold text-primary ring-1 ring-inset ring-primary/45'
                   : 'text-on-surface'
               }`}
             >

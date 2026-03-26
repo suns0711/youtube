@@ -53,6 +53,12 @@ export function tagAccentPillClass(id: TagAccentId, open: boolean): string {
   return by[id]
 }
 
+/**
+ * 当前 URL `feedTag` 与标签一致时叠用：加粗描边 + 光晕，与侧栏/首页标签筛选联动。
+ */
+export const tagFeedFilterSelectedOverlayClass =
+  'z-[1] font-semibold ring-2 ring-primary shadow-[0_0_18px_rgba(255,85,64,0.55)]'
+
 /** 侧栏小 pill */
 export function tagAccentSidebarClass(id: TagAccentId): string {
   const by: Record<TagAccentId, string> = {

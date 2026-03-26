@@ -3,6 +3,7 @@ import { useAvailableTags } from '../AvailableTagsContext'
 import {
   resolveTagAccentId,
   tagAccentSidebarClass,
+  tagFeedFilterSelectedOverlayClass,
 } from '../lib/tagAccentStyles'
 
 const LOGO_IMG =
@@ -13,7 +14,7 @@ const navClass =
 const inactive =
   'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'
 const active =
-  'scale-[1.02] bg-surface-container-high text-primary shadow-[0_0_20px_rgba(255,180,168,0.05)]'
+  'scale-[1.02] bg-primary/18 font-semibold text-primary shadow-[0_0_28px_rgba(255,85,64,0.28)] ring-1 ring-inset ring-primary/50'
 
 export function Sidebar() {
   const navigate = useNavigate()
@@ -105,8 +106,8 @@ export function Sidebar() {
                   key={t}
                   type="button"
                   onClick={() => onSidebarTagClick(t)}
-                  className={`cursor-pointer rounded border px-2 py-1 text-[11px] font-medium transition-colors ${cls} ${
-                    selected ? 'ring-2 ring-primary/60' : ''
+                  className={`cursor-pointer rounded border px-2 py-1 text-[11px] font-medium transition-all ${cls} ${
+                    selected ? tagFeedFilterSelectedOverlayClass : ''
                   }`}
                 >
                   {t}

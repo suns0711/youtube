@@ -16,6 +16,11 @@ import {
   updateSubscription,
   type SubscriptionChannel,
 } from '../api'
+import {
+  resolveTagAccentId,
+  tagAccentPillClass,
+} from '../lib/tagAccentStyles'
+import { externalYoutubeChannelUrl } from '../util'
 
 function addTagDeduped(draft: string[], raw: string): string[] {
   const t = raw.trim()
@@ -24,20 +29,9 @@ function addTagDeduped(draft: string[], raw: string): string[] {
   return [...draft, t]
 }
 
-function tagPillClass(i: number): string {
-  const mod = i % 3
-  if (mod === 0) {
-    return 'border border-tertiary/20 bg-tertiary-container/10 text-tertiary'
-  }
-  if (mod === 1) {
-    return 'border border-primary/20 bg-primary-container/10 text-primary'
-  }
-  return 'border border-outline-variant/15 bg-surface-container-highest text-on-surface-variant'
-}
-
 export function SubscriptionsPage() {
   const [searchParams] = useSearchParams()
-  const { refresh: refreshGlobalTags, tags: studioTagOptions } =
+  const { refresh: refreshGlobalTags, tags: studioTagOptions, tagAccentByLabel } =
     useAvailableTags()
   const [channels, setChannels] = useState<SubscriptionChannel[]>([])
   const [loading, setLoading] = useState(true)
@@ -278,7 +272,23 @@ export function SubscriptionsPage() {
         ) : null}
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {channels.map((c) => (
+          {channels.map((c) => {
+            const ytChannel = externalYoutubeChannelUrl(c.channelUrl)
+            const avatarWrap = (
+              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-primary/20 p-0.5">
+                {c.avatarUrl ? (
+                  <img
+                    src={c.avatarUrl}
+                    alt=""
+                    className="h-full w-full rounded-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="h-full w-full rounded-full bg-surface-container-highest" />
+                )}
+              </div>
+            )
+            return (
             <div
               id={`sub-channel-${c.id}`}
               key={c.id}
@@ -295,24 +305,25 @@ export function SubscriptionsPage() {
                   c.description ? 'mb-3' : 'mb-6'
                 }`}
               >
-                <Link
-                  to={`/subscriptions?channel=${encodeURIComponent(c.id)}`}
-                  className="flex min-w-0 flex-1 gap-4 rounded-xl p-1 -m-1 outline-none transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-2 focus-visible:ring-primary/50"
-                  title="在本页定位到此频道"
-                >
-                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-primary/20 p-0.5">
-                    {c.avatarUrl ? (
-                      <img
-                        src={c.avatarUrl}
-                        alt=""
-                        className="h-full w-full rounded-full object-cover"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="h-full w-full rounded-full bg-surface-container-highest" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-1 items-start gap-4">
+                  {ytChannel ? (
+                    <a
+                      href={ytChannel}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 rounded-full outline-none ring-offset-2 ring-offset-surface transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/50"
+                      title="在 YouTube 打开频道"
+                    >
+                      {avatarWrap}
+                    </a>
+                  ) : (
+                    avatarWrap
+                  )}
+                  <Link
+                    to={`/subscriptions?channel=${encodeURIComponent(c.id)}`}
+                    className="min-w-0 flex-1 rounded-xl p-1 -m-1 outline-none transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-2 focus-visible:ring-primary/50"
+                    title="在本页定位到此频道"
+                  >
                     <h3 className="font-bold text-on-surface group-hover:text-primary">
                       {c.name}
                     </h3>
@@ -320,8 +331,8 @@ export function SubscriptionsPage() {
                       {c.handle} • {c.subscriberLabel}
                       {c.videoCountLabel ? ` • ${c.videoCountLabel}` : ''}
                     </p>
-                  </div>
-                </Link>
+                  </Link>
+                </div>
                 <div className="relative shrink-0">
                   <button
                     type="button"
@@ -351,14 +362,17 @@ export function SubscriptionsPage() {
                 </p>
               ) : null}
               <div className="mb-8 flex flex-wrap gap-2">
-                {c.tags.map((tag, i) => (
-                  <span
-                    key={`${c.id}-${tag}-${i}`}
-                    className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${tagPillClass(i)}`}
-                  >
-                    {tag}
-                  </span>
-                ))}
+                {c.tags.map((tag, i) => {
+                  const accent = resolveTagAccentId(tag, tagAccentByLabel)
+                  return (
+                    <span
+                      key={`${c.id}-${tag}-${i}`}
+                      className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${tagAccentPillClass(accent, false)}`}
+                    >
+                      {tag}
+                    </span>
+                  )
+                })}
               </div>
               <div className="flex items-center gap-3">
                 <button
@@ -396,7 +410,8 @@ export function SubscriptionsPage() {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </section>
 
@@ -440,27 +455,30 @@ export function SubscriptionsPage() {
 
             {tagsDraft.length > 0 ? (
               <div className="mb-3 flex flex-wrap gap-2">
-                {tagsDraft.map((tag, i) => (
-                  <span
-                    key={`${tag}-${i}`}
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${tagPillClass(i)}`}
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      disabled={tagsEditLoading}
-                      onClick={() =>
-                        setTagsDraft((prev) => prev.filter((_, j) => j !== i))
-                      }
-                      className="-mr-0.5 rounded-full p-0.5 hover:bg-black/10"
-                      aria-label={`移除 ${tag}`}
+                {tagsDraft.map((tag, i) => {
+                  const accent = resolveTagAccentId(tag, tagAccentByLabel)
+                  return (
+                    <span
+                      key={`${tag}-${i}`}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${tagAccentPillClass(accent, false)}`}
                     >
-                      <span className="material-symbols-outlined text-[14px] leading-none">
-                        close
-                      </span>
-                    </button>
-                  </span>
-                ))}
+                      {tag}
+                      <button
+                        type="button"
+                        disabled={tagsEditLoading}
+                        onClick={() =>
+                          setTagsDraft((prev) => prev.filter((_, j) => j !== i))
+                        }
+                        className="-mr-0.5 rounded-full p-0.5 hover:bg-black/10"
+                        aria-label={`移除 ${tag}`}
+                      >
+                        <span className="material-symbols-outlined text-[14px] leading-none">
+                          close
+                        </span>
+                      </button>
+                    </span>
+                  )
+                })}
               </div>
             ) : null}
 

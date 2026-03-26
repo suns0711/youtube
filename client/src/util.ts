@@ -41,6 +41,17 @@ export function isAllowedYoutubeUrl(url: string): boolean {
   }
 }
 
+/**
+ * 打开 YouTube 官方频道页（卡片/头像用）。仅接受允许的 YouTube 域名。
+ */
+export function externalYoutubeChannelUrl(
+  channelUrl: string | null | undefined,
+): string | null {
+  const s = String(channelUrl || '').trim()
+  if (!s) return null
+  return isAllowedYoutubeUrl(s) ? s : null
+}
+
 export function youtubeIdFromUrl(url: string): string | null {
   try {
     const u = new URL(url)

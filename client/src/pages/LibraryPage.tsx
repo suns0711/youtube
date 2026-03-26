@@ -14,9 +14,10 @@ import { DEMO_FEED_VIDEOS } from '../data/demoFeed'
 import { buildDownloadsHref } from '../lib/downloadsNavigation'
 import {
   resolveTagAccentId,
-  tagAccentSidebarClass,
+  tagAccentPillClass,
   tagFeedFilterSelectedOverlayClass,
 } from '../lib/tagAccentStyles'
+import { externalYoutubeChannelUrl } from '../util'
 
 function tagsMatchFilter(filterRaw: string, tag: string): boolean {
   return filterRaw.trim().toLowerCase() === tag.trim().toLowerCase()
@@ -139,25 +140,27 @@ export function LibraryPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-surface font-body text-on-surface selection:bg-primary selection:text-on-primary-container">
-      <header className="sticky top-0 z-40 flex w-full items-center justify-end bg-surface px-6 py-6 md:px-10">
-        <div className="ml-10 flex flex-1 items-center gap-8" />
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-4">
-            <Link
-              to="/downloads"
-              className="relative rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary"
-            >
-              <span className="material-symbols-outlined">download</span>
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" />
-            </Link>
-            <Link
-              to="/settings"
-              className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary"
-            >
-              <span className="material-symbols-outlined">settings</span>
-            </Link>
-          </div>
-          <HeaderStudioUser size="md" />
+      <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
+        <div className="flex flex-1 items-center gap-8">
+          <h2 className="text-3xl font-black tracking-tighter text-on-surface">
+            首页
+          </h2>
+        </div>
+        <div className="ml-8 flex items-center gap-4">
+          <Link
+            to="/downloads"
+            className="relative rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary"
+          >
+            <span className="material-symbols-outlined">download</span>
+            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" />
+          </Link>
+          <Link
+            to="/settings"
+            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary"
+          >
+            <span className="material-symbols-outlined">settings</span>
+          </Link>
+          <HeaderStudioUser size="md" className="ml-2" />
         </div>
       </header>
 
@@ -220,36 +223,50 @@ export function LibraryPage() {
                       </p>
                     )
                   }
+                  const ytChannel = externalYoutubeChannelUrl(section.channelUrl)
+                  const avatarInner = section.avatarUrl ? (
+                    <img
+                      src={section.avatarUrl}
+                      alt=""
+                      className="h-11 w-11 rounded-full border border-outline-variant/15 object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-11 w-11 rounded-full bg-surface-container-highest" />
+                  )
                   return (
                     <section
                       key={section.subscriptionId}
                       className="mb-10 border-b border-outline-variant/10 pb-8 last:mb-0 last:border-0 last:pb-0"
                     >
                       <div className="mb-4 flex min-w-0 flex-col gap-3">
-                        <Link
-                          to={`/subscriptions?channel=${encodeURIComponent(section.subscriptionId)}`}
-                          className="group/ch flex w-fit max-w-full items-center gap-4 rounded-xl border border-transparent px-1 py-1 outline-none transition-colors hover:border-outline-variant/20 hover:bg-surface-container-high/50 focus-visible:ring-2 focus-visible:ring-primary/45"
-                          title="在频道页打开此订阅"
-                        >
-                          {section.avatarUrl ? (
-                            <img
-                              src={section.avatarUrl}
-                              alt=""
-                              className="h-11 w-11 shrink-0 rounded-full border border-outline-variant/15 object-cover"
-                              referrerPolicy="no-referrer"
-                            />
+                        <div className="group/ch flex w-fit max-w-full items-center gap-4 rounded-xl border border-transparent px-1 py-1">
+                          {ytChannel ? (
+                            <a
+                              href={ytChannel}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 rounded-full outline-none ring-offset-2 ring-offset-surface transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/50"
+                              title="在 YouTube 打开频道"
+                            >
+                              {avatarInner}
+                            </a>
                           ) : (
-                            <div className="h-11 w-11 shrink-0 rounded-full bg-surface-container-highest" />
+                            <div className="shrink-0">{avatarInner}</div>
                           )}
-                          <div className="min-w-0 text-left">
+                          <Link
+                            to={`/subscriptions?channel=${encodeURIComponent(section.subscriptionId)}`}
+                            className="min-w-0 flex-1 rounded-lg px-0.5 py-0.5 text-left outline-none transition-colors hover:bg-surface-container-high/55 focus-visible:ring-2 focus-visible:ring-primary/45"
+                            title="在频道页打开此订阅"
+                          >
                             <h3 className="text-xl font-bold tracking-tight text-on-surface group-hover/ch:text-primary">
                               {section.channelName}
                             </h3>
                             <p className="text-sm text-on-surface-variant">
                               {section.handle}
                             </p>
-                          </div>
-                        </Link>
+                          </Link>
+                        </div>
                         {(section.tags ?? []).length > 0 ? (
                           <div className="flex flex-wrap gap-2 pl-0 sm:pl-[3.75rem]">
                             {(section.tags ?? []).map((t) => {
@@ -257,7 +274,7 @@ export function LibraryPage() {
                                 String(t),
                                 tagAccentByLabel,
                               )
-                              const cls = tagAccentSidebarClass(accent)
+                              const cls = tagAccentPillClass(accent, false)
                               const selected = tagsMatchFilter(
                                 feedTagFilter,
                                 String(t),
@@ -267,7 +284,7 @@ export function LibraryPage() {
                                   key={`${section.subscriptionId}-${t}`}
                                   type="button"
                                   onClick={() => selectFeedTag(t)}
-                                    className={`cursor-pointer rounded border px-2 py-1 text-[11px] font-medium transition-all ${cls} ${
+                                    className={`cursor-pointer rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${cls} ${
                                       selected
                                         ? tagFeedFilterSelectedOverlayClass
                                         : ''

@@ -207,11 +207,13 @@ export function SettingsPage() {
 
   return (
     <div className="custom-scrollbar flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 flex items-center justify-between bg-surface px-6 py-4 md:px-10">
-        <h2 className="font-['Inter'] text-xl font-bold tracking-tighter text-primary">
-          设置
-        </h2>
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
+        <div className="flex flex-1 items-center gap-8">
+          <h2 className="text-3xl font-black tracking-tighter text-on-surface">
+            设置
+          </h2>
+        </div>
+        <div className="ml-8 flex items-center gap-4">
           <Link
             to="/downloads"
             className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low"

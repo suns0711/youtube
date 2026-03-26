@@ -497,13 +497,13 @@ export function DownloadsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-surface font-['Inter'] text-on-surface selection:bg-primary-container selection:text-on-primary-container">
-      <header className="sticky top-0 z-50 flex w-full items-center justify-between bg-surface px-6 py-4 tracking-tight md:px-10">
+      <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
         <div className="flex flex-1 items-center gap-8">
-          <span className="text-xl font-bold tracking-tighter text-primary">
+          <h2 className="text-3xl font-black tracking-tighter text-on-surface">
             下载
-          </span>
+          </h2>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="ml-8 flex items-center gap-4">
           <button
             type="button"
             className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low active:scale-95"

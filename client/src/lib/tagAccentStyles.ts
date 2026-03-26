@@ -28,7 +28,9 @@ export function resolveTagAccentId(
   return TAG_ACCENT_IDS[hashTag(tag) % TAG_ACCENT_IDS.length]
 }
 
-/** Tags 页等大标签块 */
+/**
+ * 标签色：频道卡片 / 侧栏筛选 / 首页 feed / 标签管理页共用（open 仅标签页展开态描边）。
+ */
 export function tagAccentPillClass(id: TagAccentId, open: boolean): string {
   const base = 'transition-colors'
   const ring: Record<TagAccentId, string> = {
@@ -58,20 +60,3 @@ export function tagAccentPillClass(id: TagAccentId, open: boolean): string {
  */
 export const tagFeedFilterSelectedOverlayClass =
   'z-[1] font-semibold ring-2 ring-primary shadow-[0_0_18px_rgba(255,85,64,0.55)]'
-
-/** 侧栏小 pill */
-export function tagAccentSidebarClass(id: TagAccentId): string {
-  const by: Record<TagAccentId, string> = {
-    coral:
-      'border-primary/25 bg-primary/8 text-primary hover:border-primary/45',
-    sky: 'border-tertiary/30 bg-tertiary/8 text-tertiary hover:border-tertiary/45',
-    violet:
-      'border-purple-400/25 bg-purple-500/8 text-purple-200 hover:border-purple-400/45',
-    mint: 'border-teal-400/25 bg-teal-500/8 text-teal-200 hover:border-teal-400/45',
-    amber:
-      'border-amber-400/30 bg-amber-500/8 text-amber-100 hover:border-amber-400/45',
-    rose: 'border-rose-400/25 bg-rose-500/8 text-rose-200 hover:border-rose-400/45',
-    cyan: 'border-cyan-400/25 bg-cyan-500/8 text-cyan-200 hover:border-cyan-400/45',
-  }
-  return by[id]
-}

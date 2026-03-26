@@ -18,6 +18,7 @@ import {
   suggestDownloadOutput,
   type DownloadJob,
 } from '../api'
+import { useAvailableTags } from '../AvailableTagsContext'
 import { resolveTagMappedDownloadPath } from '../lib/resolveTagDownloadPath'
 import { isAllowedYoutubeUrl, youtubeIdFromUrl } from '../util'
 import { HeaderStudioUser } from '../components/HeaderStudioUser'
@@ -207,6 +208,7 @@ function progressWidth(job: DownloadJob): number {
 }
 
 export function DownloadsPage() {
+  const { refresh: refreshGlobalStudio } = useAvailableTags()
   const [params] = useSearchParams()
   const urlFromQuery = params.get('url') || ''
   const channelTagsRaw = params.get('channelTags')
@@ -688,6 +690,7 @@ export function DownloadsPage() {
                         if (r.ok) {
                           setDownloadPath(r.downloadDir)
                           setMsg(null)
+                          refreshGlobalStudio()
                         }
                       } catch (e) {
                         setMsg((e as Error).message || '无法选择目录')

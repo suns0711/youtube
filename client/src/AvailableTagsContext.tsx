@@ -15,6 +15,8 @@ type AvailableTagsContextValue = {
   tagAccentByLabel: Record<string, string>
   loading: boolean
   error: string | null
+  /** 下载目录需用户处理时由服务端带回 */
+  downloadDirWarning: string | null
   refresh: () => void
 }
 
@@ -29,6 +31,9 @@ export function AvailableTagsProvider({ children }: { children: ReactNode }) {
   >({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [downloadDirWarning, setDownloadDirWarning] = useState<string | null>(
+    null,
+  )
 
   const fetchTags = useCallback(() => {
     setError(null)
@@ -44,11 +49,16 @@ export function AvailableTagsProvider({ children }: { children: ReactNode }) {
             ? { ...st.tagAccentByLabel }
             : {},
         )
+        const w = st.downloadDirWarning
+        setDownloadDirWarning(
+          typeof w === 'string' && w.trim() ? w.trim() : null,
+        )
       })
       .catch((e: Error) => {
         setError(e.message)
         setTags([...FALLBACK_STUDIO_TAGS])
         setTagAccentByLabel({})
+        setDownloadDirWarning(null)
       })
   }, [])
 
@@ -62,8 +72,15 @@ export function AvailableTagsProvider({ children }: { children: ReactNode }) {
   }, [fetchTags])
 
   const value = useMemo(
-    () => ({ tags, tagAccentByLabel, loading, error, refresh }),
-    [tags, tagAccentByLabel, loading, error, refresh],
+    () => ({
+      tags,
+      tagAccentByLabel,
+      loading,
+      error,
+      downloadDirWarning,
+      refresh,
+    }),
+    [tags, tagAccentByLabel, loading, error, downloadDirWarning, refresh],
   )
 
   return (

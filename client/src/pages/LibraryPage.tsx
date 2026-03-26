@@ -1,14 +1,32 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import type { SubscriptionFeedSection, VideoItem } from '../api'
-import { fetchSubscriptionRecentVideos, searchVideos } from '../api'
+import {
+  enrichFeedVideoMeta,
+  fetchSubscriptionFeedShell,
+  fetchSubscriptionRecentVideos,
+  searchVideos,
+} from '../api'
 import {
   FeedLoadingSkeleton,
   SearchResultsSkeleton,
+  SectionVideosSkeleton,
 } from '../components/FeedLoadingSkeleton'
 import { HeaderStudioUser } from '../components/HeaderStudioUser'
 import { VideoCard } from '../components/VideoCard'
-import { VideoModal } from '../components/VideoModal'
+
+const VideoModal = lazy(async () => {
+  const m = await import('../components/VideoModal')
+  return { default: m.VideoModal }
+})
 import { useAvailableTags } from '../AvailableTagsContext'
 import { DEMO_FEED_VIDEOS } from '../data/demoFeed'
 import { buildDownloadsHref } from '../lib/downloadsNavigation'
@@ -49,9 +67,12 @@ export function LibraryPage() {
   const [error, setError] = useState<string | null>(null)
   const [modal, setModal] = useState<VideoItem | null>(null)
   const [subSections, setSubSections] = useState<SubscriptionFeedSection[]>([])
-  const [subLoading, setSubLoading] = useState(false)
+  const [subVideosLoading, setSubVideosLoading] = useState(false)
+  const [subVideosFailed, setSubVideosFailed] = useState(false)
   const [subError, setSubError] = useState<string | null>(null)
+  const feedReqId = useRef(0)
   const navigate = useNavigate()
+  const feedPerChannel = 3
 
   const runSearch = useCallback(async (q: string) => {
     const t = q.trim()
@@ -78,22 +99,71 @@ export function LibraryPage() {
 
   useEffect(() => {
     if (qParam) return
+    const my = ++feedReqId.current
     let cancelled = false
-    setSubLoading(true)
+    setSubVideosFailed(false)
     setSubError(null)
-    fetchSubscriptionRecentVideos({ perChannel: 3 })
+    setSubVideosLoading(true)
+
+    void fetchSubscriptionFeedShell()
       .then(({ sections }) => {
-        if (!cancelled) setSubSections(sections)
+        if (cancelled || feedReqId.current !== my) return
+        setSubSections((prev) =>
+          prev.some((s) => s.videos.length > 0) ? prev : sections,
+        )
       })
-      .catch((e: Error) => {
-        if (!cancelled) {
-          setSubError(e.message)
-          setSubSections([])
+      .catch(() => {})
+
+    void fetchSubscriptionRecentVideos({ perChannel: feedPerChannel })
+      .then(async ({ sections }) => {
+        if (cancelled || feedReqId.current !== my) return
+        setSubSections(sections)
+        setSubVideosLoading(false)
+        setSubVideosFailed(false)
+
+        const needIds = [
+          ...new Set(
+            sections.flatMap((s) =>
+              s.videos.filter((v) => !v.upload_date).map((v) => v.id),
+            ),
+          ),
+        ]
+        if (!needIds.length) return
+        try {
+          const metaItems = await enrichFeedVideoMeta(needIds)
+          if (cancelled || feedReqId.current !== my) return
+          const byId = new Map(metaItems.map((m) => [m.id, m]))
+          setSubSections((prev) =>
+            prev.map((sec) => ({
+              ...sec,
+              videos: sec.videos.map((v) => {
+                const m = byId.get(v.id)
+                if (!m) return v
+                const next = { ...v }
+                if (m.upload_date) next.upload_date = m.upload_date
+                if (m.duration != null && next.duration == null)
+                  next.duration = m.duration
+                return next
+              }),
+            })),
+          )
+        } catch {
+          /* 补全失败不影响列表展示 */
         }
       })
-      .finally(() => {
-        if (!cancelled) setSubLoading(false)
+      .catch((e: Error) => {
+        if (cancelled || feedReqId.current !== my) return
+        setSubError(e.message)
+        setSubVideosLoading(false)
+        setSubVideosFailed(true)
+        void fetchSubscriptionFeedShell()
+          .then(({ sections: shell }) => {
+            if (cancelled || feedReqId.current !== my) return
+            setSubSections((prev) => (prev.length > 0 ? prev : shell))
+          })
+          .catch(() => {})
       })
+
     return () => {
       cancelled = true
     }
@@ -174,13 +244,15 @@ export function LibraryPage() {
 
         {!qParam ? (
           <>
-            {subLoading ? <FeedLoadingSkeleton /> : null}
+            {subVideosLoading && subSections.length === 0 ? (
+              <FeedLoadingSkeleton />
+            ) : null}
             {subError ? (
               <p className="mb-8 rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
                 {subError}
               </p>
             ) : null}
-            {!subLoading
+            {!subVideosLoading
             && !subError
             && subSections.length > 0
             && feedTagFilter
@@ -213,16 +285,6 @@ export function LibraryPage() {
                     )
                   }
                   const rowVideos = sortVideosInSection(section.videos)
-                  if (rowVideos.length === 0) {
-                    return (
-                      <p
-                        key={section.subscriptionId}
-                        className="mb-8 text-sm text-on-surface-variant"
-                      >
-                        {section.channelName}：暂无视频条目。
-                      </p>
-                    )
-                  }
                   const ytChannel = externalYoutubeChannelUrl(section.channelUrl)
                   const avatarInner = section.avatarUrl ? (
                     <img
@@ -234,6 +296,72 @@ export function LibraryPage() {
                   ) : (
                     <div className="h-11 w-11 rounded-full bg-surface-container-highest" />
                   )
+                  const tagRow =
+                    (section.tags ?? []).length > 0 ? (
+                      <div className="flex flex-wrap gap-2 pl-0 sm:pl-[3.75rem]">
+                        {(section.tags ?? []).map((t) => {
+                          const accent = resolveTagAccentId(
+                            String(t),
+                            tagAccentByLabel,
+                          )
+                          const cls = tagAccentPillClass(accent, false)
+                          const selected = tagsMatchFilter(
+                            feedTagFilter,
+                            String(t),
+                          )
+                          return (
+                            <button
+                              key={`${section.subscriptionId}-${t}`}
+                              type="button"
+                              onClick={() => selectFeedTag(t)}
+                              className={`cursor-pointer rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${cls} ${
+                                selected ? tagFeedFilterSelectedOverlayClass : ''
+                              }`}
+                            >
+                              {t}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    ) : null
+                  const body =
+                    rowVideos.length === 0 ? (
+                      subVideosLoading ? (
+                        <SectionVideosSkeleton
+                          cardsPerSection={feedPerChannel}
+                        />
+                      ) : subVideosFailed ? (
+                        <p className="text-sm text-error">
+                          无法加载最新视频，请稍后刷新页面。
+                        </p>
+                      ) : (
+                        <p className="text-sm text-on-surface-variant">
+                          暂无视频条目。
+                        </p>
+                      )
+                    ) : (
+                      <div className="grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-3">
+                        {rowVideos.map((v, i) => (
+                          <VideoCard
+                            key={`${section.subscriptionId}-${v.id}-${i}`}
+                            hideChannelMeta
+                            video={{
+                              ...v,
+                              feedChannelTags: section.tags ?? [],
+                            }}
+                            onPlay={setModal}
+                            onDownload={(vid) =>
+                              navigate(
+                                buildDownloadsHref(
+                                  vid.url,
+                                  vid.feedChannelTags,
+                                ),
+                              )
+                            }
+                          />
+                        ))}
+                      </div>
+                    )
                   return (
                     <section
                       key={section.subscriptionId}
@@ -267,63 +395,15 @@ export function LibraryPage() {
                             </p>
                           </Link>
                         </div>
-                        {(section.tags ?? []).length > 0 ? (
-                          <div className="flex flex-wrap gap-2 pl-0 sm:pl-[3.75rem]">
-                            {(section.tags ?? []).map((t) => {
-                              const accent = resolveTagAccentId(
-                                String(t),
-                                tagAccentByLabel,
-                              )
-                              const cls = tagAccentPillClass(accent, false)
-                              const selected = tagsMatchFilter(
-                                feedTagFilter,
-                                String(t),
-                              )
-                              return (
-                                <button
-                                  key={`${section.subscriptionId}-${t}`}
-                                  type="button"
-                                  onClick={() => selectFeedTag(t)}
-                                    className={`cursor-pointer rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all ${cls} ${
-                                      selected
-                                        ? tagFeedFilterSelectedOverlayClass
-                                        : ''
-                                    }`}
-                                >
-                                  {t}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        ) : null}
+                        {tagRow}
                       </div>
-                      <div className="grid grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-3">
-                        {rowVideos.map((v, i) => (
-                          <VideoCard
-                            key={`${section.subscriptionId}-${v.id}-${i}`}
-                            hideChannelMeta
-                            video={{
-                              ...v,
-                              feedChannelTags: section.tags ?? [],
-                            }}
-                            onPlay={setModal}
-                            onDownload={(vid) =>
-                              navigate(
-                                buildDownloadsHref(
-                                  vid.url,
-                                  vid.feedChannelTags,
-                                ),
-                              )
-                            }
-                          />
-                        ))}
-                      </div>
+                      {body}
                     </section>
                   )
                 })}
               </div>
             ) : null}
-            {!subLoading && !subError && subSections.length === 0 ? (
+            {!subVideosLoading && !subError && subSections.length === 0 ? (
               <div className="mb-10 max-w-2xl space-y-4">
                 <p className="leading-relaxed text-on-surface-variant">
                   当前没有可展示的订阅视频。请先{' '}
@@ -380,15 +460,17 @@ export function LibraryPage() {
         ) : null}
       </div>
 
-      <VideoModal
-        video={modal}
-        open={!!modal}
-        onClose={() => setModal(null)}
-        onDownload={({ url, feedChannelTags }) => {
-          navigate(buildDownloadsHref(url, feedChannelTags))
-          setModal(null)
-        }}
-      />
+      <Suspense fallback={null}>
+        <VideoModal
+          video={modal}
+          open={!!modal}
+          onClose={() => setModal(null)}
+          onDownload={({ url, feedChannelTags }) => {
+            navigate(buildDownloadsHref(url, feedChannelTags))
+            setModal(null)
+          }}
+        />
+      </Suspense>
     </div>
   )
 }

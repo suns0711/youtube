@@ -42,6 +42,12 @@ async function parseJson<T>(res: Response): Promise<T> {
   return data as T
 }
 
+export type FeedVideoMetaItem = {
+  id: string
+  upload_date?: string | null
+  duration?: number | null
+}
+
 export type VideoItem = {
   id: string
   title: string
@@ -100,6 +106,10 @@ export type StudioSettings = {
   availableTags?: string[]
   /** 标签 → 展示色键（服务端随机分配并持久化） */
   tagAccentByLabel?: Record<string, string>
+  /** 当前登录用户；仅 GET 时可能返回 */
+  studioUser?: string
+  /** 下载目录未配置、无效或不可用时由服务端返回 */
+  downloadDirWarning?: string | null
 }
 
 export async function getHealth(): Promise<Health> {
@@ -108,6 +118,35 @@ export async function getHealth(): Promise<Health> {
 }
 
 export type FeedSort = 'activity' | 'recent' | 'popular'
+
+/**
+ * 补全首页 feed 视频的上传日期等（对无 upload_date 的条目后台调用，有服务端缓存）
+ */
+export async function enrichFeedVideoMeta(
+  ids: string[],
+): Promise<FeedVideoMetaItem[]> {
+  const seen = new Set<string>()
+  const unique: string[] = []
+  for (const raw of ids) {
+    const id = String(raw || '').trim()
+    if (id.length < 6 || seen.has(id)) continue
+    seen.add(id)
+    unique.push(id)
+  }
+  const chunkSize = 48
+  const all: FeedVideoMetaItem[] = []
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    const chunk = unique.slice(i, i + chunkSize)
+    const res = await apiFetch(`${base}/api/videos/feed-meta`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: chunk }),
+    })
+    const data = await parseJson<{ items: FeedVideoMetaItem[] }>(res)
+    all.push(...(data.items ?? []))
+  }
+  return all
+}
 
 export async function searchVideos(
   q: string,
@@ -130,6 +169,14 @@ export type SubscriptionFeedSection = {
   tags?: string[]
   videos: VideoItem[]
   error?: string
+}
+
+/** 首页 feed 骨架：仅订阅频道元数据，无 yt-dlp（极快） */
+export async function fetchSubscriptionFeedShell(): Promise<{
+  sections: SubscriptionFeedSection[]
+}> {
+  const res = await apiFetch(`${base}/api/subscriptions/feed-shell`)
+  return parseJson(res)
 }
 
 /** 各已订阅频道最近视频（默认每频道 3 条） */
@@ -326,13 +373,19 @@ export async function pickDownloadDirWithDialog(): Promise<
   throw new Error(data.error || '选择目录失败')
 }
 
-/** 系统选文件夹，仅返回路径，不修改默认下载目录（如设置页 Tag 映射） */
-export async function pickFolderPathWithDialog(): Promise<
+/** 系统选文件夹，仅返回路径，不修改默认下载目录（如设置页默认目录、Tag 映射） */
+export async function pickFolderPathWithDialog(options?: {
+  title?: string
+}): Promise<
   | { ok: true; path: string }
   | { ok: false; cancelled: true }
 > {
   const res = await apiFetch(`${base}/api/pick-folder-path`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(
+      options?.title ? { title: options.title } : {},
+    ),
   })
   const text = await res.text()
   let data: { ok?: boolean; cancelled?: boolean; path?: string; error?: string }

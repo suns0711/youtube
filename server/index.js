@@ -10,7 +10,39 @@ import { tmpdir } from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
-const DEFAULT_DOWNLOAD_DIR = path.join(ROOT, 'data', 'downloads');
+/** 设置文件中默认使用的相对路径（相对项目根目录 ROOT） */
+const RELATIVE_DEFAULT_DOWNLOAD_DIR = 'data/downloads';
+
+function resolveDownloadDirFromStored(stored) {
+  const t = String(stored ?? '').trim();
+  if (!t) {
+    return path.resolve(ROOT, RELATIVE_DEFAULT_DOWNLOAD_DIR);
+  }
+  if (path.isAbsolute(t)) {
+    return path.resolve(t);
+  }
+  return path.resolve(ROOT, t);
+}
+
+function toStoredDownloadDir(absolutePath) {
+  const abs = path.resolve(String(absolutePath || ''));
+  const defAbs = path.resolve(ROOT, RELATIVE_DEFAULT_DOWNLOAD_DIR);
+  if (abs === defAbs) {
+    return RELATIVE_DEFAULT_DOWNLOAD_DIR;
+  }
+  let rel;
+  try {
+    rel = path.relative(ROOT, abs);
+  } catch {
+    return abs;
+  }
+  if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+    return rel.split(path.sep).join('/');
+  }
+  return abs;
+}
+
+const DEFAULT_DOWNLOAD_DIR = resolveDownloadDirFromStored('');
 const USERS_ROOT = path.join(ROOT, 'data', 'users');
 const LEGACY_SETTINGS_PATH = path.join(ROOT, 'data', 'studio-settings.json');
 const LEGACY_SUBSCRIPTIONS_PATH = path.join(ROOT, 'data', 'subscriptions.json');
@@ -37,9 +69,32 @@ const RECENT_FEED_PARALLEL =
     8,
     Math.max(
       1,
-      parseInt(String(process.env.RECENT_FEED_PARALLEL || '4'), 10) || 4,
+      parseInt(String(process.env.RECENT_FEED_PARALLEL || '6'), 10) || 6,
     ),
   );
+/** recent-videos 内存缓存 TTL（ms），0 关闭；订阅变更时会主动失效 */
+const RECENT_FEED_CACHE_TTL_MS = Math.max(
+  0,
+  parseInt(String(process.env.RECENT_FEED_CACHE_TTL_MS || '90000'), 10) || 0,
+);
+/** @type {Map<string, { at: number, body: { sections: unknown[] } }>} */
+const recentFeedCache = new Map();
+/** 首页视频上传时间等补全（/watch 单条解析，较慢，短期缓存） */
+const FEED_VIDEO_META_CACHE_TTL_MS = Math.max(
+  60_000,
+  parseInt(String(process.env.FEED_VIDEO_META_CACHE_TTL_MS || '21600000'), 10)
+    || 21_600_000,
+);
+const FEED_VIDEO_META_PARALLEL = Math.min(
+  8,
+  Math.max(1, parseInt(String(process.env.FEED_VIDEO_META_PARALLEL || '4'), 10) || 4),
+);
+const FEED_VIDEO_META_MAX_IDS = Math.min(
+  120,
+  Math.max(1, parseInt(String(process.env.FEED_VIDEO_META_MAX_IDS || '48'), 10) || 48),
+);
+/** @type {Map<string, { at: number, upload_date: string | null, duration: number | null }>} */
+const feedVideoMetaCache = new Map();
 const ENV_DOWNLOAD_DIR = process.env.DOWNLOAD_DIR
   ? path.resolve(process.env.DOWNLOAD_DIR)
   : DEFAULT_DOWNLOAD_DIR;
@@ -62,7 +117,7 @@ function userSubscriptionsPath(userId) {
   return path.join(userDir(userId), 'subscriptions.json');
 }
 
-/** @typedef {{ userId: string, activeDownloadDir: string, tagMappings: unknown[], hiddenTags: string[], tagAccentByLabel: Record<string, string>, subscriptions: unknown[] }} StudioUserContext */
+/** @typedef {{ userId: string, activeDownloadDir: string, tagMappings: unknown[], hiddenTags: string[], tagAccentByLabel: Record<string, string>, subscriptions: unknown[], downloadDirWarning: string | null, downloadDirFromSettings: boolean }} StudioUserContext */
 
 /** @type {Map<string, StudioUserContext>} */
 const userContexts = new Map();
@@ -70,11 +125,13 @@ const userContexts = new Map();
 function createFreshContext(userId) {
   return {
     userId,
-    activeDownloadDir: path.join(USERS_ROOT, userId, 'downloads'),
+    activeDownloadDir: resolveDownloadDirFromStored(''),
     tagMappings: defaultTagMappings(),
     hiddenTags: [],
     tagAccentByLabel: {},
     subscriptions: [],
+    downloadDirWarning: null,
+    downloadDirFromSettings: false,
   };
 }
 
@@ -192,7 +249,7 @@ function saveStudioSettingsToDisk(ctx) {
     p,
     JSON.stringify(
       {
-        downloadDir: ctx.activeDownloadDir,
+        downloadDir: toStoredDownloadDir(ctx.activeDownloadDir),
         tagMappings: ctx.tagMappings,
         hiddenTags: ctx.hiddenTags,
         tagAccentByLabel: ctx.tagAccentByLabel,
@@ -204,32 +261,98 @@ function saveStudioSettingsToDisk(ctx) {
   );
 }
 
-function loadStudioIntoContext(ctx) {
-  const p = userSettingsPath(ctx.userId);
-  fs.mkdirSync(path.dirname(p), { recursive: true });
-  if (!fs.existsSync(p)) {
-    saveStudioSettingsToDisk(ctx);
-    fs.mkdirSync(ctx.activeDownloadDir, { recursive: true });
-    return;
+/**
+ * 校验当前 ctx.activeDownloadDir 是否可创建、为目录且可读写。
+ * @returns {string | null} 错误文案；无问题返回 null
+ */
+function validateActiveDownloadDir(ctx) {
+  const dir = ctx.activeDownloadDir;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch (e) {
+    return `无法创建下载目录（${dir}）：${e.message || e}`;
   }
   try {
-    const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
-    ctx.activeDownloadDir = path.resolve(
-      typeof raw.downloadDir === 'string' && raw.downloadDir.trim()
-        ? raw.downloadDir
-        : path.join(USERS_ROOT, ctx.userId, 'downloads'),
-    );
-    ctx.tagMappings = sanitizeTagMappings(raw.tagMappings);
-    ctx.hiddenTags = sanitizeHiddenTags(raw.hiddenTags);
-    ctx.tagAccentByLabel = sanitizeTagAccents(raw.tagAccentByLabel);
-  } catch {
-    ctx.activeDownloadDir = path.join(USERS_ROOT, ctx.userId, 'downloads');
+    const st = fs.statSync(dir);
+    if (!st.isDirectory()) {
+      return `下载路径不是文件夹：${dir}`;
+    }
+    fs.accessSync(dir, fs.constants.R_OK | fs.constants.W_OK);
+  } catch (e) {
+    return `下载目录不可用（${dir}）：${e.message || e}`;
+  }
+  return null;
+}
+
+/** 保存设置或系统选目录成功后刷新提示 */
+function revalidateDownloadDirAfterMutation(ctx) {
+  ctx.downloadDirFromSettings = true;
+  ctx.downloadDirWarning = validateActiveDownloadDir(ctx);
+}
+
+function loadStudioIntoContext(ctx) {
+  const p = userSettingsPath(ctx.userId);
+  const defaultDir = resolveDownloadDirFromStored('');
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  ctx.downloadDirWarning = null;
+  ctx.downloadDirFromSettings = false;
+
+  if (!fs.existsSync(p)) {
+    ctx.activeDownloadDir = defaultDir;
     ctx.tagMappings = defaultTagMappings();
     ctx.hiddenTags = [];
     ctx.tagAccentByLabel = {};
+    ctx.downloadDirWarning = validateActiveDownloadDir(ctx);
+    if (!ctx.downloadDirWarning) {
+      ctx.downloadDirWarning =
+        `尚未生成设置文件，已使用默认相对路径 ${RELATIVE_DEFAULT_DOWNLOAD_DIR}（相对项目根目录）。请到「设置」确认。`;
+    }
     saveStudioSettingsToDisk(ctx);
+    return;
   }
-  fs.mkdirSync(ctx.activeDownloadDir, { recursive: true });
+
+  let raw;
+  try {
+    raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {
+    ctx.activeDownloadDir = defaultDir;
+    ctx.tagMappings = defaultTagMappings();
+    ctx.hiddenTags = [];
+    ctx.tagAccentByLabel = {};
+    const v = validateActiveDownloadDir(ctx);
+    ctx.downloadDirWarning = v
+      ? `设置文件损坏已重置。${v}`
+      : '设置文件损坏已重置。请到「设置」确认下载目录。';
+    saveStudioSettingsToDisk(ctx);
+    return;
+  }
+
+  const configured =
+    typeof raw.downloadDir === 'string' && raw.downloadDir.trim();
+  ctx.downloadDirFromSettings = Boolean(configured);
+  ctx.activeDownloadDir = configured
+    ? resolveDownloadDirFromStored(configured)
+    : defaultDir;
+  ctx.tagMappings = sanitizeTagMappings(raw.tagMappings);
+  ctx.hiddenTags = sanitizeHiddenTags(raw.hiddenTags);
+  ctx.tagAccentByLabel = sanitizeTagAccents(raw.tagAccentByLabel);
+
+  const vErr = validateActiveDownloadDir(ctx);
+  if (vErr) {
+    ctx.downloadDirWarning = `${vErr} 已临时使用默认目录；请到「设置」修改并保存。`;
+    ctx.activeDownloadDir = defaultDir;
+    ctx.downloadDirFromSettings = false;
+    const v2 = validateActiveDownloadDir(ctx);
+    if (v2) {
+      ctx.downloadDirWarning = `${vErr} 默认目录亦不可用：${v2}。请到「设置」处理。`;
+    }
+    return;
+  }
+
+  if (!configured) {
+    ctx.downloadDirWarning =
+      `未在设置中填写下载目录，当前使用默认相对路径 ${RELATIVE_DEFAULT_DOWNLOAD_DIR}（相对项目根目录）。请到「设置」确认。`;
+  }
 }
 
 function getDownloadDir(ctx) {
@@ -260,7 +383,9 @@ function validateDownloadDir(dir) {
   if (!s || s.length > 4096 || s.includes('\0')) {
     return { ok: false, error: '无效的目录路径' };
   }
-  const resolved = path.resolve(s);
+  const resolved = path.isAbsolute(s)
+    ? path.resolve(s)
+    : path.resolve(ROOT, s);
   return { ok: true, path: resolved };
 }
 
@@ -634,6 +759,41 @@ function runYtDlp(args, { timeoutMs = 120_000 } = {}) {
   });
 }
 
+/** 有 stdout 即视作成功，用于批量补元数据时部分 URL 失败仍解析其余行 */
+function runYtDlpLenient(args, { timeoutMs = 120_000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(YT_DLP, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env },
+    });
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      reject(new Error('yt-dlp 超时'));
+    }, timeoutMs);
+    child.stdout.on('data', (d) => {
+      stdout += d.toString();
+    });
+    child.stderr.on('data', (d) => {
+      stderr += d.toString();
+    });
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      if (stdout.trim()) {
+        resolve({ stdout, stderr });
+        return;
+      }
+      const msg = stderr.trim() || stdout.trim() || `退出码 ${code}`;
+      reject(new Error(msg));
+    });
+  });
+}
+
 function parseJsonLines(text) {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
   const out = [];
@@ -698,6 +858,24 @@ function normalizeVideoEntry(raw) {
     const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
     const day = String(d.getUTCDate()).padStart(2, '0');
     uploadDate = `${y}${mo}${day}`;
+  }
+  if (
+    !uploadDate
+    && typeof raw.release_date === 'string'
+    && /^\d{8}$/.test(raw.release_date)
+  ) {
+    uploadDate = raw.release_date;
+  }
+  if (!uploadDate && typeof raw.timestamp === 'number' && Number.isFinite(raw.timestamp)) {
+    let ts = raw.timestamp;
+    if (ts > 1e12) ts /= 1000;
+    if (ts > 946684800 && ts < 4102444800) {
+      const d = new Date(ts * 1000);
+      const y = d.getUTCFullYear();
+      const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      uploadDate = `${y}${mo}${day}`;
+    }
   }
   const viewCount =
     typeof raw.view_count === 'number' && Number.isFinite(raw.view_count)
@@ -843,17 +1021,27 @@ app.post('/api/pick-download-dir', async (req, res) => {
     fs.mkdirSync(dirResult.path, { recursive: true });
     ctx.activeDownloadDir = dirResult.path;
     saveStudioSettingsToDisk(ctx);
-    res.json({ ok: true, downloadDir: getDownloadDir(ctx) });
+    revalidateDownloadDirAfterMutation(ctx);
+    res.json({
+      ok: true,
+      downloadDir: getDownloadDir(ctx),
+      downloadDirWarning: ctx.downloadDirWarning,
+    });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
   }
 });
 
-/** 仅弹出文件夹选择并返回路径，不修改默认下载目录（如 Tag 映射） */
-app.post('/api/pick-folder-path', async (_req, res) => {
+/** 仅弹出文件夹选择并返回路径，不修改默认下载目录（如 Tag 映射、设置页默认目录） */
+app.post('/api/pick-folder-path', async (req, res) => {
   try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const rawTitle =
+      typeof body.title === 'string' && body.title.trim()
+        ? body.title.trim().slice(0, 200)
+        : '';
     const picked = await pickFolderPathNative(
-      '选择标签存放目录（YouTube Studio）',
+      rawTitle || '选择标签存放目录（YouTube Studio）',
     );
     if (!picked) {
       return res.json({ ok: false, cancelled: true });
@@ -889,6 +1077,106 @@ app.get('/api/health', async (_req, res) => {
       hint: '请安装 yt-dlp 并确保在 PATH 中，或设置环境变量 YT_DLP_PATH',
     });
   }
+});
+
+function sanitizeYoutubeVideoId(raw) {
+  const s = String(raw || '').trim();
+  if (!/^[a-zA-Z0-9_-]{6,32}$/.test(s)) return null;
+  return s;
+}
+
+function getFeedVideoMetaCached(id) {
+  const hit = feedVideoMetaCache.get(id);
+  if (!hit) return undefined;
+  if (Date.now() - hit.at > FEED_VIDEO_META_CACHE_TTL_MS) {
+    feedVideoMetaCache.delete(id);
+    return undefined;
+  }
+  return hit;
+}
+
+function setFeedVideoMetaCached(id, upload_date, duration) {
+  feedVideoMetaCache.set(id, {
+    at: Date.now(),
+    upload_date: upload_date ?? null,
+    duration: duration ?? null,
+  });
+}
+
+/**
+ * 异步补全首页视频上传日期等（主接口仍用 flat-playlist 保速度）
+ * body: { ids: string[] }
+ */
+app.post('/api/videos/feed-meta', async (req, res) => {
+  const raw = req.body?.ids;
+  if (!Array.isArray(raw)) {
+    return res.status(400).json({ error: 'ids 须为数组' });
+  }
+  const idList = [];
+  const seen = new Set();
+  for (const x of raw) {
+    const id = sanitizeYoutubeVideoId(x);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    idList.push(id);
+    if (idList.length >= FEED_VIDEO_META_MAX_IDS) break;
+  }
+  if (!idList.length) {
+    return res.json({ items: [] });
+  }
+
+  const items = [];
+  const toFetch = [];
+  for (const id of idList) {
+    const c = getFeedVideoMetaCached(id);
+    if (c) {
+      items.push({ id, upload_date: c.upload_date, duration: c.duration });
+    } else {
+      toFetch.push(id);
+    }
+  }
+
+  if (toFetch.length) {
+    const fetched = await asyncPool(
+      toFetch,
+      FEED_VIDEO_META_PARALLEL,
+      async (id) => {
+        try {
+          const { stdout } = await runYtDlpLenient(
+            [
+              `https://www.youtube.com/watch?v=${id}`,
+              '--skip-download',
+              '--dump-json',
+              '--no-warnings',
+              '--socket-timeout',
+              '22',
+              '--retries',
+              '1',
+            ],
+            { timeoutMs: 35_000 },
+          );
+          const lines = parseJsonLines(stdout);
+          const rawLast = lines.length ? lines[lines.length - 1] : null;
+          const v = rawLast ? normalizeVideoEntry(rawLast) : null;
+          if (v) {
+            setFeedVideoMetaCached(id, v.upload_date, v.duration);
+            return {
+              id,
+              upload_date: v.upload_date,
+              duration: v.duration,
+            };
+          }
+        } catch {
+          /* 单条失败 */
+        }
+        setFeedVideoMetaCached(id, null, null);
+        return { id, upload_date: null, duration: null };
+      },
+    );
+    items.push(...fetched);
+  }
+
+  res.json({ items });
 });
 
 app.get('/api/search', async (req, res) => {
@@ -1348,6 +1636,13 @@ function sanitizeSubscription(raw) {
   };
 }
 
+function invalidateRecentFeedCache(userId) {
+  const prefix = `${String(userId)}\t`;
+  for (const k of recentFeedCache.keys()) {
+    if (k.startsWith(prefix)) recentFeedCache.delete(k);
+  }
+}
+
 function saveSubscriptionsToDisk(ctx) {
   const p = userSubscriptionsPath(ctx.userId);
   fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -1356,6 +1651,7 @@ function saveSubscriptionsToDisk(ctx) {
     JSON.stringify(ctx.subscriptions, null, 2),
     'utf8',
   );
+  invalidateRecentFeedCache(ctx.userId);
 }
 
 function loadSubscriptionsIntoContext(ctx) {
@@ -1409,6 +1705,9 @@ app.get('/api/settings', (req, res) => {
     availableTags: collectAvailableTags(ctx),
     tagAccentByLabel: ctx.tagAccentByLabel,
     studioUser: ctx.userId,
+    ...(ctx.downloadDirWarning
+      ? { downloadDirWarning: ctx.downloadDirWarning }
+      : {}),
   });
 });
 
@@ -1433,11 +1732,15 @@ app.post('/api/settings', (req, res) => {
     }
     syncAccentsForVisibleTags(ctx);
     saveStudioSettingsToDisk(ctx);
+    revalidateDownloadDirAfterMutation(ctx);
     res.json({
       downloadDir: getDownloadDir(ctx),
       tagMappings: ctx.tagMappings,
       availableTags: collectAvailableTags(ctx),
       tagAccentByLabel: ctx.tagAccentByLabel,
+      ...(ctx.downloadDirWarning
+        ? { downloadDirWarning: ctx.downloadDirWarning }
+        : {}),
     });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
@@ -1507,6 +1810,45 @@ app.get('/api/subscriptions', (req, res) => {
   res.json({ channels: list });
 });
 
+function orderedHomeFeedChannels(ctx) {
+  return [...ctx.subscriptions]
+    .filter((c) => !c.notificationsMuted)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+}
+
+function subscriptionToFeedSectionShell(ch) {
+  return {
+    subscriptionId: ch.id,
+    channelName: ch.name,
+    handle: ch.handle,
+    channelUrl: String(ch.channelUrl || '').trim(),
+    avatarUrl: ch.avatarUrl || '',
+    tags: Array.isArray(ch.tags) ? [...ch.tags] : [],
+    videos: [],
+  };
+}
+
+function recentFeedCacheKey(userId, ordered, per, sortMode) {
+  const sig = ordered
+    .map(
+      (c) =>
+        `${c.id}:${Number(c.updatedAt) || 0}:${c.notificationsMuted ? 1 : 0}`,
+    )
+    .join(',');
+  return `${userId}\t${per}\t${sortMode}\t${sig}`;
+}
+
+/**
+ * 首页 feed 仅频道元数据（无 yt-dlp），用于尽快展示订阅分区与标签
+ */
+app.get('/api/subscriptions/feed-shell', (req, res) => {
+  const ctx = getContext(req.studioUser);
+  const ordered = orderedHomeFeedChannels(ctx);
+  res.json({
+    sections: ordered.map((ch) => subscriptionToFeedSectionShell(ch)),
+  });
+});
+
 /**
  * 每个已订阅频道取视频 Tab 前 N 条（频道间并行）
  * sort=recent（默认）：频道 /videos 默认顺序（通常为最新）；--flat-playlist，较快。
@@ -1521,9 +1863,16 @@ app.get('/api/subscriptions/recent-videos', async (req, res) => {
     : 3;
   const sortMode = String(req.query.sort || 'recent').toLowerCase();
   const useFlatPlaylist = sortMode !== 'views';
-  const ordered = [...ctx.subscriptions]
-    .filter((c) => !c.notificationsMuted)
-    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const ordered = orderedHomeFeedChannels(ctx);
+
+  if (RECENT_FEED_CACHE_TTL_MS > 0) {
+    const ckey = recentFeedCacheKey(req.studioUser, ordered, per, sortMode);
+    const hit = recentFeedCache.get(ckey);
+    const now = Date.now();
+    if (hit && now - hit.at < RECENT_FEED_CACHE_TTL_MS) {
+      return res.json(hit.body);
+    }
+  }
 
   const sections = await asyncPool(ordered, RECENT_FEED_PARALLEL, async (ch) => {
     const videosUrl = subscriptionChannelToVideosUrl(ch, sortMode);
@@ -1589,7 +1938,12 @@ app.get('/api/subscriptions/recent-videos', async (req, res) => {
     }
   });
 
-  res.json({ sections });
+  const payload = { sections };
+  if (RECENT_FEED_CACHE_TTL_MS > 0) {
+    const key = recentFeedCacheKey(req.studioUser, ordered, per, sortMode);
+    recentFeedCache.set(key, { at: Date.now(), body: payload });
+  }
+  res.json(payload);
 });
 
 app.post('/api/subscriptions', async (req, res) => {

@@ -53,6 +53,31 @@ export function FeedLoadingSkeleton({
   )
 }
 
+/** 某频道下视频栅格占位（与 hideChannelMeta 的 VideoCard 布局一致） */
+export function SectionVideosSkeleton({
+  cardsPerSection = 3,
+}: {
+  cardsPerSection?: number
+}) {
+  return (
+    <div
+      className="grid animate-pulse grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-3"
+      aria-busy="true"
+      aria-label="正在加载视频"
+    >
+      {Array.from({ length: cardsPerSection }, (_, ci) => (
+        <div key={ci} className="flex flex-col gap-4">
+          <div className="aspect-video w-full rounded-xl bg-surface-container-highest" />
+          <div className="space-y-2 pt-0.5">
+            <div className="h-5 w-full rounded-lg bg-surface-container-highest" />
+            <div className="h-3.5 max-w-[220px] rounded-lg bg-surface-container-highest/75" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 /** 搜索模式下的栅格占位 */
 export function SearchResultsSkeleton({ count = 8 }: { count?: number }) {
   return (

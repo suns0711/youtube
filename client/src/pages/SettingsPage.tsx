@@ -52,6 +52,10 @@ export function SettingsPage() {
   const [applying, setApplying] = useState(false)
   const [pickingMappingId, setPickingMappingId] = useState<string | null>(null)
   const [mappingPickErr, setMappingPickErr] = useState<string | null>(null)
+  const [pickingDownloadDir, setPickingDownloadDir] = useState(false)
+  const [downloadDirPickErr, setDownloadDirPickErr] = useState<string | null>(
+    null,
+  )
 
   const refresh = useCallback(() => {
     setLoadErr(null)
@@ -124,13 +128,23 @@ export function SettingsPage() {
   }
 
   const changePath = () => {
-    if (!draft) return
-    const next = window.prompt(
-      '默认下载目录（绝对路径）',
-      draft.downloadDir,
-    )
-    if (next == null) return
-    setDraft({ ...draft, downloadDir: next.trim() })
+    void (async () => {
+      if (!draft) return
+      setPickingDownloadDir(true)
+      setDownloadDirPickErr(null)
+      try {
+        const r = await pickFolderPathWithDialog({
+          title: '选择默认下载目录（YouTube Studio）',
+        })
+        if (r.ok) {
+          setDraft((d) => (d ? { ...d, downloadDir: r.path } : d))
+        }
+      } catch (e) {
+        setDownloadDirPickErr((e as Error).message || '无法选择目录')
+      } finally {
+        setPickingDownloadDir(false)
+      }
+    })()
   }
 
   const updateMapping = (id: string, patch: Partial<TagMapping>) => {
@@ -289,6 +303,9 @@ export function SettingsPage() {
                 <label className="mb-3 block text-sm font-semibold text-on-surface-variant">
                   默认下载目录
                 </label>
+                {downloadDirPickErr ? (
+                  <p className="mb-3 text-sm text-error">{downloadDirPickErr}</p>
+                ) : null}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
                   <input
                     readOnly
@@ -297,14 +314,16 @@ export function SettingsPage() {
                   />
                   <button
                     type="button"
+                    title="在运行后端的电脑上选择文件夹"
+                    disabled={pickingMappingId !== null || pickingDownloadDir}
                     onClick={changePath}
-                    className="shrink-0 rounded-lg bg-surface-container-high px-6 py-3 text-sm font-bold text-primary transition-colors hover:bg-surface-bright"
+                    className="shrink-0 rounded-lg bg-surface-container-high px-6 py-3 text-sm font-bold text-primary transition-colors hover:bg-surface-bright disabled:pointer-events-none disabled:opacity-50"
                   >
-                    修改路径
+                    {pickingDownloadDir ? '选择中…' : '修改路径'}
                   </button>
                 </div>
                 <p className="mt-2 text-[11px] uppercase tracking-wider text-on-surface-variant/60">
-                  未命中标签映射时，下载任务默认保存到此目录。
+                  未命中标签映射时，下载任务默认保存到此目录。选择后需点击底部「保存更改」才会写入服务端。
                 </p>
               </div>
 
@@ -345,7 +364,9 @@ export function SettingsPage() {
                         <button
                           type="button"
                           title="在后端电脑上选择文件夹并填入路径"
-                          disabled={pickingMappingId !== null}
+                          disabled={
+                            pickingMappingId !== null || pickingDownloadDir
+                          }
                           onClick={() => pickPathForMapping(m.id)}
                           className="flex shrink-0 items-center justify-center self-stretch rounded-lg bg-surface-container-high px-3 text-primary transition-colors hover:bg-surface-container-highest disabled:pointer-events-none disabled:opacity-50"
                           aria-label="选择文件夹路径"

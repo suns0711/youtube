@@ -967,6 +967,102 @@ app.post('/api/info', async (req, res) => {
   }
 });
 
+function subscriptionMatchesVideoChannel(sub, raw) {
+  const vChannel = String(raw.channel_url || raw.uploader_url || '').trim();
+  const vBase = normalizeChannelBaseUrl(vChannel);
+  const sBase = normalizeChannelBaseUrl(sub.channelUrl);
+  if (vBase && sBase && vBase === sBase) return true;
+  const vid = String(raw.channel_id || '').trim();
+  if (vid) {
+    const lid = vid.toLowerCase();
+    if (String(sub.channelUrl || '').toLowerCase().includes(lid)) return true;
+  }
+  const up = String(raw.uploader_id || '')
+    .trim()
+    .replace(/^@+/, '')
+    .toLowerCase();
+  const h = String(sub.handle || '')
+    .trim()
+    .replace(/^@+/, '')
+    .toLowerCase();
+  return Boolean(up && h && up === h);
+}
+
+function pickOutputDirFromSubscriptionTags(ctx, tags) {
+  const fallback = getDownloadDir(ctx);
+  if (!Array.isArray(tags)) return { dir: fallback, mappedTag: null };
+  for (const rawTag of tags) {
+    const t = String(rawTag || '').trim();
+    if (!t) continue;
+    const want = t.toLowerCase();
+    const row = ctx.tagMappings.find(
+      (m) => String(m.tag || '').trim().toLowerCase() === want,
+    );
+    const p = row?.path != null ? String(row.path).trim() : '';
+    if (p) return { dir: p, mappedTag: t };
+  }
+  return { dir: fallback, mappedTag: null };
+}
+
+/** 单行视频 URL → 匹配当前用户订阅频道 → 按标签映射建议保存目录（供下载页自动填入） */
+app.post('/api/download/suggest-output', async (req, res) => {
+  const ctx = getContext(req.studioUser);
+  const url = String(req.body?.url || '').trim();
+  if (!url || !isAllowedYoutubeUrl(url)) {
+    return res.status(400).json({ error: '无效或未允许的 YouTube 链接' });
+  }
+  try {
+    const { stdout } = await runYtDlp(
+      ['-J', '--skip-download', '--no-playlist', url],
+      { timeoutMs: 120_000 },
+    );
+    const raw = JSON.parse(stdout);
+    if (!raw || typeof raw !== 'object') {
+      return res.status(500).json({ error: 'yt-dlp 返回无效' });
+    }
+    if (raw._type === 'playlist') {
+      return res.status(400).json({
+        error:
+          '请使用单个视频链接；若为播放列表请先打开某一期视频再复制地址',
+      });
+    }
+    const sub = ctx.subscriptions.find((s) =>
+      subscriptionMatchesVideoChannel(s, raw),
+    );
+    const defaultDir = getDownloadDir(ctx);
+    if (!sub) {
+      const ch = String(raw.channel || raw.uploader || '').trim() || null;
+      return res.json({
+        matched: false,
+        outputDir: defaultDir,
+        channelName: null,
+        channelTitle: ch,
+        tags: [],
+        mappedTag: null,
+        hint:
+          '该视频频道不在当前「频道」订阅中，无法根据标签推断目录。可先添加订阅并设置标签与保存路径映射。',
+      });
+    }
+    const { dir, mappedTag } = pickOutputDirFromSubscriptionTags(ctx, sub.tags);
+    const hasMapping = Boolean(mappedTag);
+    const tagList = sub.tags.length ? sub.tags.join('、') : '（无）';
+    return res.json({
+      matched: true,
+      outputDir: dir,
+      channelName: sub.name,
+      channelTitle:
+        String(raw.channel || raw.uploader || '').trim() || sub.name,
+      tags: [...sub.tags],
+      mappedTag: hasMapping ? mappedTag : null,
+      hint: hasMapping
+        ? `已识别订阅「${sub.name}」，标签「${mappedTag}」在系统设置中配置了保存目录，已填入下方路径。`
+        : `已识别订阅「${sub.name}」标签：${tagList}；其中暂无在设置里配置路径的标签，仍使用默认下载目录。`,
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
 async function fetchVideoTitle(url) {
   try {
     const { stdout } = await runYtDlp(

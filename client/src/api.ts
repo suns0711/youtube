@@ -228,6 +228,28 @@ export async function getVideoInfo(
   return parseJson(res)
 }
 
+export type SuggestDownloadOutputResult = {
+  matched: boolean
+  outputDir: string
+  channelName: string | null
+  channelTitle: string | null
+  tags: string[]
+  mappedTag: string | null
+  hint: string | null
+}
+
+/** 单个视频 URL：yt-dlp 取频道 → 匹配当前用户订阅 → 按标签→目录映射建议保存路径 */
+export async function suggestDownloadOutput(
+  url: string,
+): Promise<SuggestDownloadOutputResult> {
+  const res = await apiFetch(`${base}/api/download/suggest-output`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+  return parseJson(res)
+}
+
 export async function startDownload(
   url: string,
   quality: string,

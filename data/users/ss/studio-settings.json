@@ -6,6 +6,12 @@
       "tag": "Lego",
       "path": "/Users/lalala/Downloads/youtube/Lego/test",
       "dot": "tertiary"
+    },
+    {
+      "id": "fbaab750-5c0a-49e1-905f-ef815ac15183",
+      "tag": "NBA",
+      "path": "/Users/lalala/Downloads/youtube/NBA",
+      "dot": "primary"
     }
   ],
   "hiddenTags": [
@@ -28,6 +34,7 @@
     "Inspiration": "cyan",
     "Visual Effects": "mint",
     "RC工程车": "cyan",
-    "Lego": "sky"
+    "Lego": "sky",
+    "NBA": "coral"
   }
 }

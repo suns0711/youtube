@@ -1,5 +1,5 @@
 {
-  "downloadDir": "/Users/lalala/Documents/website/youtube/data/downloads",
+  "downloadDir": "/Users/yibing/Documents/MyProjects/website/youtube/data/downloads",
   "tagMappings": [
     {
       "id": "baf66847-440b-495b-b0c1-26b670e78404",
@@ -9,18 +9,6 @@
     }
   ],
   "hiddenTags": [
-    "Sound Design",
-    "Cinema",
-    "B-ROLL",
-    "Audio",
-    "Gear",
-    "4K RAW",
-    "Weekly",
-    "Post-Prod",
-    "Gaming",
-    "Music",
-    "Tech",
-    "Tutorials",
     "INTERVIEW"
   ],
   "tagAccentByLabel": {
@@ -28,6 +16,11 @@
     "Inspiration": "cyan",
     "Visual Effects": "mint",
     "RC工程车": "cyan",
-    "Lego": "sky"
+    "Lego": "sky",
+    "Cinema": "amber",
+    "Gaming": "rose",
+    "Music": "mint",
+    "Tech": "sky",
+    "Tutorials": "mint"
   }
 }

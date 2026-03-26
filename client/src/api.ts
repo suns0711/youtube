@@ -1,5 +1,32 @@
 const base = ''
 
+export const STUDIO_USER_STORAGE_KEY = 'studio-user'
+
+/** 与后端 ALLOWED_USERS（默认 ss,yb）保持一致，仅用于 UI 展示 */
+export const STUDIO_USER_OPTIONS = ['ss', 'yb'] as const
+
+export function getStudioUser(): string {
+  if (typeof localStorage === 'undefined') return 'ss'
+  const u = (localStorage.getItem(STUDIO_USER_STORAGE_KEY) || 'ss')
+    .trim()
+    .toLowerCase()
+  return /^[a-z0-9_-]{1,32}$/i.test(u) ? u : 'ss'
+}
+
+export function setStudioUser(userId: string): void {
+  localStorage.setItem(STUDIO_USER_STORAGE_KEY, userId.trim().toLowerCase())
+}
+
+function withStudioUserHeaders(init?: RequestInit): RequestInit {
+  const headers = new Headers(init?.headers)
+  headers.set('X-Studio-User', getStudioUser())
+  return { ...init, headers }
+}
+
+function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  return fetch(input, withStudioUserHeaders(init))
+}
+
 async function parseJson<T>(res: Response): Promise<T> {
   const text = await res.text()
   let data: unknown
@@ -87,7 +114,7 @@ export async function searchVideos(
   opts?: { sort?: FeedSort },
 ): Promise<{ videos: VideoItem[] }> {
   const sort = opts?.sort ?? 'activity'
-  const res = await fetch(
+  const res = await apiFetch(
     `${base}/api/search?${new URLSearchParams({ q, sort })}`,
   )
   return parseJson(res)
@@ -119,7 +146,7 @@ export async function fetchSubscriptionRecentVideos(opts?: {
     sp.set('sort', 'views')
   }
   const q = sp.toString()
-  const res = await fetch(
+  const res = await apiFetch(
     `${base}/api/subscriptions/recent-videos${q ? `?${q}` : ''}`,
   )
   return parseJson(res)
@@ -149,7 +176,7 @@ export async function listSubscriptions(opts?: {
   if (opts?.sort) sp.set('sort', opts.sort)
   if (opts?.filter?.trim()) sp.set('filter', opts.filter.trim())
   const q = sp.toString()
-  const res = await fetch(
+  const res = await apiFetch(
     `${base}/api/subscriptions${q ? `?${q}` : ''}`,
   )
   return parseJson(res)
@@ -163,7 +190,7 @@ export async function createSubscription(
     channelUrl?: string
   },
 ): Promise<SubscriptionChannel> {
-  const res = await fetch(`${base}/api/subscriptions`, {
+  const res = await apiFetch(`${base}/api/subscriptions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -175,7 +202,7 @@ export async function updateSubscription(
   id: string,
   body: Partial<SubscriptionChannel>,
 ): Promise<SubscriptionChannel> {
-  const res = await fetch(`${base}/api/subscriptions/${id}`, {
+  const res = await apiFetch(`${base}/api/subscriptions/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -184,7 +211,7 @@ export async function updateSubscription(
 }
 
 export async function deleteSubscription(id: string): Promise<void> {
-  const res = await fetch(`${base}/api/subscriptions/${id}`, {
+  const res = await apiFetch(`${base}/api/subscriptions/${id}`, {
     method: 'DELETE',
   })
   await parseJson(res)
@@ -193,7 +220,7 @@ export async function deleteSubscription(id: string): Promise<void> {
 export async function getVideoInfo(
   url: string,
 ): Promise<{ video: VideoItem & { description?: string } }> {
-  const res = await fetch(`${base}/api/info`, {
+  const res = await apiFetch(`${base}/api/info`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ url }),
@@ -212,7 +239,7 @@ export async function startDownload(
   }
   const od = opts?.outputDir?.trim()
   if (od) body.outputDir = od
-  const res = await fetch(`${base}/api/download`, {
+  const res = await apiFetch(`${base}/api/download`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -221,28 +248,30 @@ export async function startDownload(
 }
 
 export async function getJob(jobId: string): Promise<DownloadJob> {
-  const res = await fetch(`${base}/api/download/${jobId}`)
+  const res = await apiFetch(`${base}/api/download/${jobId}`)
   return parseJson(res)
 }
 
 export async function listJobs(): Promise<{ jobs: DownloadJob[] }> {
-  const res = await fetch(`${base}/api/downloads`)
+  const res = await apiFetch(`${base}/api/downloads`)
   return parseJson(res)
 }
 
 export async function deleteDownloadJob(jobId: string): Promise<void> {
-  const res = await fetch(`${base}/api/download/${jobId}`, { method: 'DELETE' })
+  const res = await apiFetch(`${base}/api/download/${jobId}`, {
+    method: 'DELETE',
+  })
   await parseJson(res)
 }
 
 export async function clearAllDownloadJobs(): Promise<void> {
-  const res = await fetch(`${base}/api/downloads`, { method: 'DELETE' })
+  const res = await apiFetch(`${base}/api/downloads`, { method: 'DELETE' })
   await parseJson(res)
 }
 
 /** 在运行后端的机器上打开当前下载目录（Finder / 资源管理器等） */
 export async function openDownloadDirInFileManager(): Promise<{ ok: boolean }> {
-  const res = await fetch(`${base}/api/open-download-dir`, {
+  const res = await apiFetch(`${base}/api/open-download-dir`, {
     method: 'POST',
   })
   return parseJson(res)
@@ -253,7 +282,7 @@ export async function pickDownloadDirWithDialog(): Promise<
   | { ok: true; downloadDir: string }
   | { ok: false; cancelled: true }
 > {
-  const res = await fetch(`${base}/api/pick-download-dir`, {
+  const res = await apiFetch(`${base}/api/pick-download-dir`, {
     method: 'POST',
   })
   const text = await res.text()
@@ -280,7 +309,7 @@ export async function pickFolderPathWithDialog(): Promise<
   | { ok: true; path: string }
   | { ok: false; cancelled: true }
 > {
-  const res = await fetch(`${base}/api/pick-folder-path`, {
+  const res = await apiFetch(`${base}/api/pick-folder-path`, {
     method: 'POST',
   })
   const text = await res.text()
@@ -303,14 +332,14 @@ export async function pickFolderPathWithDialog(): Promise<
 }
 
 export async function getStudioSettings(): Promise<StudioSettings> {
-  const res = await fetch(`${base}/api/settings`)
+  const res = await apiFetch(`${base}/api/settings`)
   return parseJson<StudioSettings>(res)
 }
 
 export async function saveStudioSettings(
   body: StudioSettings,
 ): Promise<StudioSettings> {
-  const res = await fetch(`${base}/api/settings`, {
+  const res = await apiFetch(`${base}/api/settings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -322,7 +351,7 @@ export async function removeStudioTag(tag: string): Promise<{
   ok: boolean
   availableTags: string[]
 }> {
-  const res = await fetch(`${base}/api/tags/remove`, {
+  const res = await apiFetch(`${base}/api/tags/remove`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ tag }),

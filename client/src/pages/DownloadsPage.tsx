@@ -13,9 +13,7 @@ import {
 } from '../api'
 import { resolveTagMappedDownloadPath } from '../lib/resolveTagDownloadPath'
 import { youtubeIdFromUrl } from '../util'
-
-const PROFILE_IMG =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuA2xdxojiSKgqC6jfm0oB-4GTI7ZupvsTAGB_NiFWHK4LtjAn6JDG6Rs53oDiuWfiYsiw0JfaMcIuiSM5AHbeVqu_TPVZh51vDbT_vdiHeFVs3tSjGscxEHtLvkOdHU-Hq4V5qXNLsgNxsogLuCItsCUh8k6IgccKBT26m0G7SlDyat-uvax0EYJguLUxv8f2Pu-CA_vRv9h7HvxUM1Rg5Ukl8mGrClGG_6W6nTo_Jn4tnknymOpuZy8B-o9ov7YAzTp1UPbkvyX-pZ'
+import { HeaderStudioUser } from '../components/HeaderStudioUser'
 
 const QUALITIES: { id: string; label: string }[] = [
   { id: '2160', label: '4K（2160p）' },
@@ -296,13 +294,7 @@ export function DownloadsPage() {
           >
             <span className="material-symbols-outlined">settings</span>
           </Link>
-          <div className="ml-2 h-8 w-8 overflow-hidden rounded-full border border-outline-variant/20">
-            <img
-              src={PROFILE_IMG}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          </div>
+          <HeaderStudioUser size="sm" className="ml-2" />
         </div>
       </header>
 

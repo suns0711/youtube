@@ -11,8 +11,20 @@ import { tmpdir } from 'os';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const DEFAULT_DOWNLOAD_DIR = path.join(ROOT, 'data', 'downloads');
-const SETTINGS_PATH = path.join(ROOT, 'data', 'studio-settings.json');
-const SUBSCRIPTIONS_PATH = path.join(ROOT, 'data', 'subscriptions.json');
+const USERS_ROOT = path.join(ROOT, 'data', 'users');
+const LEGACY_SETTINGS_PATH = path.join(ROOT, 'data', 'studio-settings.json');
+const LEGACY_SUBSCRIPTIONS_PATH = path.join(ROOT, 'data', 'subscriptions.json');
+
+const ALLOWED_USERS = new Set(
+  String(process.env.STUDIO_USERS || 'ss,yb')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => /^[a-z0-9_-]{1,32}$/i.test(s)),
+);
+if (ALLOWED_USERS.size === 0) {
+  ALLOWED_USERS.add('ss');
+  ALLOWED_USERS.add('yb');
+}
 
 const execFileAsync = promisify(execFile);
 
@@ -32,10 +44,67 @@ const ENV_DOWNLOAD_DIR = process.env.DOWNLOAD_DIR
   ? path.resolve(process.env.DOWNLOAD_DIR)
   : DEFAULT_DOWNLOAD_DIR;
 
-app.use(cors({ origin: true }));
+app.use(
+  cors({
+    origin: true,
+    allowedHeaders: ['Content-Type', 'X-Studio-User', 'X-User-Id'],
+  }),
+);
 app.use(express.json({ limit: '1mb' }));
 
-let activeDownloadDir = ENV_DOWNLOAD_DIR;
+function userDir(userId) {
+  return path.join(USERS_ROOT, userId);
+}
+function userSettingsPath(userId) {
+  return path.join(userDir(userId), 'studio-settings.json');
+}
+function userSubscriptionsPath(userId) {
+  return path.join(userDir(userId), 'subscriptions.json');
+}
+
+/** @typedef {{ userId: string, activeDownloadDir: string, tagMappings: unknown[], hiddenTags: string[], tagAccentByLabel: Record<string, string>, subscriptions: unknown[] }} StudioUserContext */
+
+/** @type {Map<string, StudioUserContext>} */
+const userContexts = new Map();
+
+function createFreshContext(userId) {
+  return {
+    userId,
+    activeDownloadDir: path.join(USERS_ROOT, userId, 'downloads'),
+    tagMappings: defaultTagMappings(),
+    hiddenTags: [],
+    tagAccentByLabel: {},
+    subscriptions: [],
+  };
+}
+
+function parseStudioUser(req) {
+  const raw = String(
+    req.headers['x-studio-user'] ||
+      req.headers['x-user-id'] ||
+      req.query.user ||
+      '',
+  )
+    .trim()
+    .toLowerCase();
+  if (/^[a-z0-9_-]{1,32}$/i.test(raw) && ALLOWED_USERS.has(raw)) return raw;
+  return null;
+}
+
+app.use((req, res, next) => {
+  if (req.method === 'OPTIONS') return next();
+  if (req.path === '/api/health') return next();
+  const u = parseStudioUser(req);
+  if (!u) {
+    return res.status(401).json({
+      error:
+        '缺少或无效的用户。请在请求头加入 X-Studio-User（例如 ss 或 yb）',
+      allowedUsers: [...ALLOWED_USERS],
+    });
+  }
+  req.studioUser = u;
+  next();
+});
 
 function defaultTagMappings() {
   return [
@@ -54,12 +123,6 @@ function defaultTagMappings() {
   ];
 }
 
-/** @type {Array<{ id: string, tag: string, path: string, dot: string }>} */
-let tagMappings = defaultTagMappings();
-
-/** 从标签列表中隐藏（含系统预设）；由 POST /api/tags/remove 写入 */
-let hiddenTags = [];
-
 /** 标签展示色键 → 与 client/src/lib/tagAccentStyles.ts 中 ID 一致 */
 const TAG_ACCENTS = [
   'coral',
@@ -70,9 +133,6 @@ const TAG_ACCENTS = [
   'rose',
   'cyan',
 ];
-
-/** @type {Record<string, string>} */
-let tagAccentByLabel = {};
 
 function sanitizeTagAccents(raw) {
   if (!raw || typeof raw !== 'object') return {};
@@ -85,12 +145,12 @@ function sanitizeTagAccents(raw) {
   return out;
 }
 
-function assignRandomAccentForTag(label) {
+function assignRandomAccentForTag(ctx, label) {
   const t = String(label || '').trim().slice(0, 64);
-  if (!t || Object.prototype.hasOwnProperty.call(tagAccentByLabel, t)) {
+  if (!t || Object.prototype.hasOwnProperty.call(ctx.tagAccentByLabel, t)) {
     return false;
   }
-  tagAccentByLabel[t] =
+  ctx.tagAccentByLabel[t] =
     TAG_ACCENTS[Math.floor(Math.random() * TAG_ACCENTS.length)];
   return true;
 }
@@ -125,16 +185,17 @@ function sanitizeTagMappings(arr) {
   return out.length ? out : defaultTagMappings();
 }
 
-function saveStudioSettingsToDisk() {
-  fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
+function saveStudioSettingsToDisk(ctx) {
+  const p = userSettingsPath(ctx.userId);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(
-    SETTINGS_PATH,
+    p,
     JSON.stringify(
       {
-        downloadDir: activeDownloadDir,
-        tagMappings,
-        hiddenTags,
-        tagAccentByLabel,
+        downloadDir: ctx.activeDownloadDir,
+        tagMappings: ctx.tagMappings,
+        hiddenTags: ctx.hiddenTags,
+        tagAccentByLabel: ctx.tagAccentByLabel,
       },
       null,
       2,
@@ -143,32 +204,55 @@ function saveStudioSettingsToDisk() {
   );
 }
 
-function loadStudioSettings() {
-  fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
-  if (!fs.existsSync(SETTINGS_PATH)) {
-    activeDownloadDir = ENV_DOWNLOAD_DIR;
-    tagMappings = defaultTagMappings();
-    saveStudioSettingsToDisk();
-  } else {
-    try {
-      const raw = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
-      activeDownloadDir = path.resolve(
-        typeof raw.downloadDir === 'string' && raw.downloadDir.trim()
-          ? raw.downloadDir
-          : ENV_DOWNLOAD_DIR,
-      );
-      tagMappings = sanitizeTagMappings(raw.tagMappings);
-      hiddenTags = sanitizeHiddenTags(raw.hiddenTags);
-      tagAccentByLabel = sanitizeTagAccents(raw.tagAccentByLabel);
-    } catch {
-      activeDownloadDir = ENV_DOWNLOAD_DIR;
-      tagMappings = defaultTagMappings();
-      hiddenTags = [];
-      tagAccentByLabel = {};
-      saveStudioSettingsToDisk();
-    }
+function loadStudioIntoContext(ctx) {
+  const p = userSettingsPath(ctx.userId);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  if (!fs.existsSync(p)) {
+    saveStudioSettingsToDisk(ctx);
+    fs.mkdirSync(ctx.activeDownloadDir, { recursive: true });
+    return;
   }
-  fs.mkdirSync(activeDownloadDir, { recursive: true });
+  try {
+    const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+    ctx.activeDownloadDir = path.resolve(
+      typeof raw.downloadDir === 'string' && raw.downloadDir.trim()
+        ? raw.downloadDir
+        : path.join(USERS_ROOT, ctx.userId, 'downloads'),
+    );
+    ctx.tagMappings = sanitizeTagMappings(raw.tagMappings);
+    ctx.hiddenTags = sanitizeHiddenTags(raw.hiddenTags);
+    ctx.tagAccentByLabel = sanitizeTagAccents(raw.tagAccentByLabel);
+  } catch {
+    ctx.activeDownloadDir = path.join(USERS_ROOT, ctx.userId, 'downloads');
+    ctx.tagMappings = defaultTagMappings();
+    ctx.hiddenTags = [];
+    ctx.tagAccentByLabel = {};
+    saveStudioSettingsToDisk(ctx);
+  }
+  fs.mkdirSync(ctx.activeDownloadDir, { recursive: true });
+}
+
+function getDownloadDir(ctx) {
+  return ctx.activeDownloadDir;
+}
+
+function migrateLegacyDataIfNeeded() {
+  const first = [...ALLOWED_USERS][0] || 'ss';
+  fs.mkdirSync(USERS_ROOT, { recursive: true });
+  if (
+    fs.existsSync(LEGACY_SETTINGS_PATH)
+    && !fs.existsSync(userSettingsPath(first))
+  ) {
+    fs.mkdirSync(userDir(first), { recursive: true });
+    fs.copyFileSync(LEGACY_SETTINGS_PATH, userSettingsPath(first));
+  }
+  if (
+    fs.existsSync(LEGACY_SUBSCRIPTIONS_PATH)
+    && !fs.existsSync(userSubscriptionsPath(first))
+  ) {
+    fs.mkdirSync(userDir(first), { recursive: true });
+    fs.copyFileSync(LEGACY_SUBSCRIPTIONS_PATH, userSubscriptionsPath(first));
+  }
 }
 
 function validateDownloadDir(dir) {
@@ -178,12 +262,6 @@ function validateDownloadDir(dir) {
   }
   const resolved = path.resolve(s);
   return { ok: true, path: resolved };
-}
-
-loadStudioSettings();
-
-function getDownloadDir() {
-  return activeDownloadDir;
 }
 
 /** @type {Map<string, Record<string, unknown>>} */
@@ -721,8 +799,8 @@ async function pickFolderPathNative(
   }
 }
 
-function openDownloadDirInOsFileManager() {
-  const dir = getDownloadDir();
+function openDownloadDirInOsFileManager(ctx) {
+  const dir = getDownloadDir(ctx);
   fs.mkdirSync(dir, { recursive: true });
   return new Promise((resolve, reject) => {
     if (process.platform === 'win32') {
@@ -740,9 +818,10 @@ function openDownloadDirInOsFileManager() {
   });
 }
 
-app.post('/api/open-download-dir', async (_req, res) => {
+app.post('/api/open-download-dir', async (req, res) => {
   try {
-    await openDownloadDirInOsFileManager();
+    const ctx = getContext(req.studioUser);
+    await openDownloadDirInOsFileManager(ctx);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
@@ -750,8 +829,9 @@ app.post('/api/open-download-dir', async (_req, res) => {
 });
 
 /** 在运行后端的电脑上弹出系统文件夹选择，并写入下载目录设置 */
-app.post('/api/pick-download-dir', async (_req, res) => {
+app.post('/api/pick-download-dir', async (req, res) => {
   try {
+    const ctx = getContext(req.studioUser);
     const picked = await pickFolderPathNative();
     if (!picked) {
       return res.json({ ok: false, cancelled: true });
@@ -761,9 +841,9 @@ app.post('/api/pick-download-dir', async (_req, res) => {
       return res.status(400).json({ error: dirResult.error });
     }
     fs.mkdirSync(dirResult.path, { recursive: true });
-    activeDownloadDir = dirResult.path;
-    saveStudioSettingsToDisk();
-    res.json({ ok: true, downloadDir: getDownloadDir() });
+    ctx.activeDownloadDir = dirResult.path;
+    saveStudioSettingsToDisk(ctx);
+    res.json({ ok: true, downloadDir: getDownloadDir(ctx) });
   } catch (e) {
     res.status(500).json({ error: String(e.message || e) });
   }
@@ -792,11 +872,15 @@ app.post('/api/pick-folder-path', async (_req, res) => {
 app.get('/api/health', async (_req, res) => {
   try {
     const { stdout } = await runYtDlp(['--version'], { timeoutMs: 8000 });
+    const sampleUser = [...ALLOWED_USERS][0] || 'ss';
+    const sampleCtx = getContext(sampleUser);
     res.json({
       ok: true,
       ytDlp: stdout.trim(),
-      downloadDir: getDownloadDir(),
+      downloadDir: getDownloadDir(sampleCtx),
       binary: YT_DLP,
+      usersRoot: USERS_ROOT,
+      allowedUsers: [...ALLOWED_USERS],
     });
   } catch (e) {
     res.status(503).json({
@@ -909,12 +993,13 @@ async function fetchVideoTitle(url) {
 }
 
 app.post('/api/download', (req, res) => {
+  const ctx = getContext(req.studioUser);
   const url = String(req.body?.url || '').trim();
   const quality = String(req.body?.quality || 'best');
   if (!url || !isAllowedYoutubeUrl(url)) {
     return res.status(400).json({ error: '无效或未允许的 YouTube 链接' });
   }
-  let outputDir = getDownloadDir();
+  let outputDir = getDownloadDir(ctx);
   const outRaw = req.body?.outputDir;
   if (outRaw !== undefined && outRaw !== null && String(outRaw).trim()) {
     const dirResult = validateDownloadDir(String(outRaw).trim());
@@ -933,6 +1018,7 @@ app.post('/api/download', (req, res) => {
 
   const job = {
     id: jobId,
+    studioUser: req.studioUser,
     url,
     quality,
     outputDir,
@@ -1057,37 +1143,49 @@ app.post('/api/download', (req, res) => {
 
 app.get('/api/download/:jobId', (req, res) => {
   const job = jobs.get(req.params.jobId);
-  if (!job) return res.status(404).json({ error: '任务不存在' });
-  const { _stderrTail, stagingDir: _sd, ...rest } = job;
+  if (!job || job.studioUser !== req.studioUser) {
+    return res.status(404).json({ error: '任务不存在' });
+  }
+  const { _stderrTail, stagingDir: _sd, studioUser: _su, ...rest } = job;
   res.json(rest);
 });
 
-app.get('/api/downloads', (_req, res) => {
-  const list = [...jobs.values()].sort((a, b) => b.createdAt - a.createdAt);
+app.get('/api/downloads', (req, res) => {
+  const list = [...jobs.values()]
+    .filter((j) => j.studioUser === req.studioUser)
+    .sort((a, b) => b.createdAt - a.createdAt);
   res.json({
     jobs: list.map((j) => {
-      const { _stderrTail, stagingDir: _sd, ...rest } = j;
+      const { _stderrTail, stagingDir: _sd, studioUser: _su, ...rest } = j;
       return rest;
     }),
   });
 });
 
 app.delete('/api/download/:jobId', (req, res) => {
-  if (!jobs.has(req.params.jobId)) {
+  const job = jobs.get(req.params.jobId);
+  if (!job || job.studioUser !== req.studioUser) {
     return res.status(404).json({ error: '任务不存在' });
   }
   jobs.delete(req.params.jobId);
   res.json({ ok: true });
 });
 
-app.delete('/api/downloads', (_req, res) => {
-  jobs.clear();
+app.delete('/api/downloads', (req, res) => {
+  for (const [id, j] of jobs) {
+    if (j.studioUser === req.studioUser) jobs.delete(id);
+  }
   res.json({ ok: true });
 });
 
 app.get('/api/download/:jobId/file', (req, res) => {
   const job = jobs.get(req.params.jobId);
-  if (!job || job.status !== 'complete' || !job.filePath) {
+  if (
+    !job
+    || job.studioUser !== req.studioUser
+    || job.status !== 'complete'
+    || !job.filePath
+  ) {
     return res.status(404).json({ error: '文件未就绪' });
   }
   if (!fs.existsSync(job.filePath)) {
@@ -1109,14 +1207,14 @@ const SIDEBAR_PRESET_TAGS = [
   'Gaming',
 ];
 
-function collectAvailableTags() {
-  const hidden = new Set(hiddenTags);
+function collectAvailableTags(ctx) {
+  const hidden = new Set(ctx.hiddenTags);
   const set = new Set(SIDEBAR_PRESET_TAGS);
-  tagMappings.forEach((m) => {
+  ctx.tagMappings.forEach((m) => {
     const t = String(m.tag || '').trim();
     if (t) set.add(t);
   });
-  subscriptions.forEach((c) => {
+  ctx.subscriptions.forEach((c) => {
     (c.tags || []).forEach((raw) => {
       const t = String(raw || '').trim();
       if (t) set.add(t);
@@ -1127,144 +1225,13 @@ function collectAvailableTags() {
     .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 }
 
-function syncAccentsForVisibleTags() {
+function syncAccentsForVisibleTags(ctx) {
   let changed = false;
-  for (const tag of collectAvailableTags()) {
-    if (assignRandomAccentForTag(tag)) changed = true;
+  for (const tag of collectAvailableTags(ctx)) {
+    if (assignRandomAccentForTag(ctx, tag)) changed = true;
   }
   return changed;
 }
-
-app.get('/api/settings', (_req, res) => {
-  res.json({
-    downloadDir: getDownloadDir(),
-    tagMappings,
-    availableTags: collectAvailableTags(),
-    tagAccentByLabel,
-  });
-});
-
-app.post('/api/settings', (req, res) => {
-  const body = req.body || {};
-  const dirResult = validateDownloadDir(body.downloadDir ?? getDownloadDir());
-  if (!dirResult.ok) {
-    return res.status(400).json({ error: dirResult.error });
-  }
-  try {
-    const nextMappings = sanitizeTagMappings(body.tagMappings ?? tagMappings);
-    fs.mkdirSync(dirResult.path, { recursive: true });
-    activeDownloadDir = dirResult.path;
-    tagMappings = nextMappings;
-    if (Array.isArray(body.hiddenTags)) {
-      hiddenTags = sanitizeHiddenTags(body.hiddenTags);
-    }
-    syncAccentsForVisibleTags();
-    saveStudioSettingsToDisk();
-    res.json({
-      downloadDir: getDownloadDir(),
-      tagMappings,
-      availableTags: collectAvailableTags(),
-      tagAccentByLabel,
-    });
-  } catch (e) {
-    res.status(500).json({ error: String(e.message || e) });
-  }
-});
-
-app.post('/api/tags/remove', (req, res) => {
-  const tag = String(req.body?.tag || '').trim().slice(0, 64);
-  if (!tag) {
-    return res.status(400).json({ error: '缺少 tag' });
-  }
-  try {
-    if (!hiddenTags.includes(tag)) {
-      hiddenTags.push(tag);
-    }
-    hiddenTags = sanitizeHiddenTags(hiddenTags);
-    delete tagAccentByLabel[tag];
-    let subChanged = false;
-    subscriptions = subscriptions.map((c) => {
-      const before = (c.tags || []).length;
-      const nextTags = (c.tags || []).filter(
-        (x) => String(x || '').trim() !== tag,
-      );
-      if (nextTags.length !== before) subChanged = true;
-      return { ...c, tags: nextTags };
-    });
-    if (subChanged) saveSubscriptionsToDisk();
-    const beforeMap = tagMappings.length;
-    tagMappings = tagMappings.filter(
-      (m) => String(m.tag || '').trim() !== tag,
-    );
-    if (tagMappings.length !== beforeMap) {
-      /* 已允许空映射 */
-    }
-    saveStudioSettingsToDisk();
-    res.json({
-      ok: true,
-      availableTags: collectAvailableTags(),
-    });
-  } catch (e) {
-    res.status(500).json({ error: String(e.message || e) });
-  }
-});
-
-function defaultSubscriptions() {
-  const t = Date.now();
-  return [
-    {
-      id: randomUUID(),
-      name: 'CineFlow Studios',
-      handle: '@cineflow_hq',
-      subscriberLabel: '1.2M subs',
-      avatarUrl:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuDHsLnIyYQQToH4ibSQzXZSy_NZ9ftZ35n6RHac_CP0YncazmEMrKxfMGnkApUZkIMQTtDTOOHYKGvETmyD5fh2GYF7QkFRzb2ds3ubGGiRELPhiKJtubWd2JsU2BkFRX5LgRTo3KX2CvUARn4ptFUPQoMjZZyysK6Hpw3QXdhmoqLlZZZYVgi09V-l_1C7PS647FXzLlTj5EIygh5f6aCZJfFxTMOA11d6CYsnQTgO9GkLr41CsWWKBaxq9lXOkD6qXJiqOrwjgy2m',
-      tags: ['4K RAW', 'Post-Prod', 'Weekly'],
-      notificationsMuted: true,
-      channelUrl: '',
-      updatedAt: t,
-    },
-    {
-      id: randomUUID(),
-      name: 'Vibrant Pixels',
-      handle: '@vpx_art',
-      subscriberLabel: '450K subs',
-      avatarUrl:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuBkISh2vnZbZk1B1jpCnz9_X1XXPNE_8dy5l7J3C7UBzAoiEvl711FnKG3PpBrBtNq0__FWuHWlq0MeaUKlR6WfZmeaA0z8-AIYfD93kMF2oDQdXO4sjW3XlAk2WkQVUI0I2sAd1pTs9tAL1Vw961p7ooCTQaBmZFfyoRcEagfjpA6dm01n43Fr33-lnAVCO2Nm01eNWU5Fd1m13ZXgV8a9a-FGAROlihLPjhjiNbovSUn0qpuZDzGJCKrVeNXaQXNFYzftGRQOOzxc',
-      tags: ['Visual Effects', 'Inspiration'],
-      notificationsMuted: false,
-      channelUrl: '',
-      updatedAt: t - 1000,
-    },
-    {
-      id: randomUUID(),
-      name: 'TechNoir Review',
-      handle: '@technoir_labs',
-      subscriberLabel: '2.8M subs',
-      avatarUrl:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuCxLC4I19aW241_pl4HGKLsD_HvAIKNmtYPJBiscFYS5EELKPfabAl7o5RyRMy5obSufPuhQyrqBGLeiD7MFn3p7fQrChZfRSdiEe7w1a6mRofzam4_hDs_2Xmdp4G40CjtGpKtPnj-Tro9reM136qzR69zvixYpl3_ofEMlViU1NG--MfnaJthnVpMxLK8ql2qpxiMG22kyZwunArW19e-RlvVW74owrqqOoOwg5QbO2QHwS9uQ7CvHfy4sH2pDL6jdAhgssDDFEKN',
-      tags: ['Gear', 'Hardware'],
-      notificationsMuted: true,
-      channelUrl: '',
-      updatedAt: t - 2000,
-    },
-    {
-      id: randomUUID(),
-      name: 'Soundscapes',
-      handle: '@audio_scapes',
-      subscriberLabel: '180K subs',
-      avatarUrl:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuDyG1lnr5zYUffIEDhgr7RYXFTgFUYNnixU83iDqRQTXJFVz7DZPhMz3KiBOnTE6nGM_W72wPba0IE00pbgvTPVBqNwmQqiD568e4fH2C5TVvU_K5wAFNcpm-Hh0Y0vyDN8vjfc0bqLZZG-EwhAb9Id0KZvYaxh-ATsuZe8fC4LzY_OZFNLBIYcWEfHJICnkQFZRJErTaTxCi01xAMQH1H3B9db6GWWv8DcX_IQ-9b9ycBb-xGJ2U0Vz-wNE8Tasne5BS-E9xqsdkDY',
-      tags: ['Audio', 'Sound Design'],
-      notificationsMuted: false,
-      channelUrl: '',
-      updatedAt: t - 3000,
-    },
-  ];
-}
-
-/** @type {Array<Record<string, unknown>>} */
-let subscriptions = [];
 
 function sanitizeSubscription(raw) {
   const tags = Array.isArray(raw.tags)
@@ -1285,49 +1252,144 @@ function sanitizeSubscription(raw) {
   };
 }
 
-function saveSubscriptionsToDisk() {
-  fs.mkdirSync(path.dirname(SUBSCRIPTIONS_PATH), { recursive: true });
+function saveSubscriptionsToDisk(ctx) {
+  const p = userSubscriptionsPath(ctx.userId);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(
-    SUBSCRIPTIONS_PATH,
-    JSON.stringify(subscriptions, null, 2),
+    p,
+    JSON.stringify(ctx.subscriptions, null, 2),
     'utf8',
   );
 }
 
-function loadSubscriptions() {
-  fs.mkdirSync(path.dirname(SUBSCRIPTIONS_PATH), { recursive: true });
-  if (!fs.existsSync(SUBSCRIPTIONS_PATH)) {
-    subscriptions = defaultSubscriptions();
-    saveSubscriptionsToDisk();
+function loadSubscriptionsIntoContext(ctx) {
+  const p = userSubscriptionsPath(ctx.userId);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  if (!fs.existsSync(p)) {
+    ctx.subscriptions = [];
+    saveSubscriptionsToDisk(ctx);
     return;
   }
   try {
-    const arr = JSON.parse(fs.readFileSync(SUBSCRIPTIONS_PATH, 'utf8'));
-    if (!Array.isArray(arr) || arr.length === 0) {
-      subscriptions = defaultSubscriptions();
-      saveSubscriptionsToDisk();
-      return;
+    const arr = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (!Array.isArray(arr)) {
+      ctx.subscriptions = [];
+    } else {
+      ctx.subscriptions = arr.map(sanitizeSubscription);
     }
-    subscriptions = arr.map(sanitizeSubscription);
-    saveSubscriptionsToDisk();
+    saveSubscriptionsToDisk(ctx);
   } catch {
-    subscriptions = defaultSubscriptions();
-    saveSubscriptionsToDisk();
+    ctx.subscriptions = [];
+    saveSubscriptionsToDisk(ctx);
   }
 }
 
-loadSubscriptions();
-
-if (syncAccentsForVisibleTags()) {
-  saveStudioSettingsToDisk();
+function getContext(userId) {
+  if (!userContexts.has(userId)) {
+    const ctx = createFreshContext(userId);
+    loadStudioIntoContext(ctx);
+    loadSubscriptionsIntoContext(ctx);
+    if (syncAccentsForVisibleTags(ctx)) saveStudioSettingsToDisk(ctx);
+    userContexts.set(userId, ctx);
+  }
+  return userContexts.get(userId);
 }
 
+function ensureAllUsersInitialized() {
+  migrateLegacyDataIfNeeded();
+  for (const uid of ALLOWED_USERS) {
+    fs.mkdirSync(userDir(uid), { recursive: true });
+    getContext(uid);
+  }
+}
+
+ensureAllUsersInitialized();
+
+app.get('/api/settings', (req, res) => {
+  const ctx = getContext(req.studioUser);
+  res.json({
+    downloadDir: getDownloadDir(ctx),
+    tagMappings: ctx.tagMappings,
+    availableTags: collectAvailableTags(ctx),
+    tagAccentByLabel: ctx.tagAccentByLabel,
+    studioUser: ctx.userId,
+  });
+});
+
+app.post('/api/settings', (req, res) => {
+  const ctx = getContext(req.studioUser);
+  const body = req.body || {};
+  const dirResult = validateDownloadDir(
+    body.downloadDir ?? getDownloadDir(ctx),
+  );
+  if (!dirResult.ok) {
+    return res.status(400).json({ error: dirResult.error });
+  }
+  try {
+    const nextMappings = sanitizeTagMappings(
+      body.tagMappings ?? ctx.tagMappings,
+    );
+    fs.mkdirSync(dirResult.path, { recursive: true });
+    ctx.activeDownloadDir = dirResult.path;
+    ctx.tagMappings = nextMappings;
+    if (Array.isArray(body.hiddenTags)) {
+      ctx.hiddenTags = sanitizeHiddenTags(body.hiddenTags);
+    }
+    syncAccentsForVisibleTags(ctx);
+    saveStudioSettingsToDisk(ctx);
+    res.json({
+      downloadDir: getDownloadDir(ctx),
+      tagMappings: ctx.tagMappings,
+      availableTags: collectAvailableTags(ctx),
+      tagAccentByLabel: ctx.tagAccentByLabel,
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
+app.post('/api/tags/remove', (req, res) => {
+  const ctx = getContext(req.studioUser);
+  const tag = String(req.body?.tag || '').trim().slice(0, 64);
+  if (!tag) {
+    return res.status(400).json({ error: '缺少 tag' });
+  }
+  try {
+    if (!ctx.hiddenTags.includes(tag)) {
+      ctx.hiddenTags.push(tag);
+    }
+    ctx.hiddenTags = sanitizeHiddenTags(ctx.hiddenTags);
+    delete ctx.tagAccentByLabel[tag];
+    let subChanged = false;
+    ctx.subscriptions = ctx.subscriptions.map((c) => {
+      const before = (c.tags || []).length;
+      const nextTags = (c.tags || []).filter(
+        (x) => String(x || '').trim() !== tag,
+      );
+      if (nextTags.length !== before) subChanged = true;
+      return { ...c, tags: nextTags };
+    });
+    if (subChanged) saveSubscriptionsToDisk(ctx);
+    ctx.tagMappings = ctx.tagMappings.filter(
+      (m) => String(m.tag || '').trim() !== tag,
+    );
+    saveStudioSettingsToDisk(ctx);
+    res.json({
+      ok: true,
+      availableTags: collectAvailableTags(ctx),
+    });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
+});
+
 app.get('/api/subscriptions', (req, res) => {
+  const ctx = getContext(req.studioUser);
   const sort = String(req.query.sort || 'updated');
   const filterQ = String(req.query.filter || '')
     .trim()
     .toLowerCase();
-  let list = [...subscriptions];
+  let list = [...ctx.subscriptions];
   if (filterQ) {
     list = list.filter((c) => {
       const hay = [
@@ -1355,14 +1417,15 @@ app.get('/api/subscriptions', (req, res) => {
  * sort=views：/videos?sort=p（YouTube「热门」），与 recent 不是同一列表；无 flat，便于观看数字段。
  * 已在 Channels 页关闭通知的频道不返回（首页不展示）。
  */
-app.get('/api/subscriptions/recent-videos', async (_req, res) => {
-  const rawPer = parseInt(String(_req.query.perChannel || '3'), 10);
+app.get('/api/subscriptions/recent-videos', async (req, res) => {
+  const ctx = getContext(req.studioUser);
+  const rawPer = parseInt(String(req.query.perChannel || '3'), 10);
   const per = Number.isFinite(rawPer)
     ? Math.min(10, Math.max(1, rawPer))
     : 3;
-  const sortMode = String(_req.query.sort || 'recent').toLowerCase();
+  const sortMode = String(req.query.sort || 'recent').toLowerCase();
   const useFlatPlaylist = sortMode !== 'views';
-  const ordered = [...subscriptions]
+  const ordered = [...ctx.subscriptions]
     .filter((c) => !c.notificationsMuted)
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 
@@ -1434,6 +1497,7 @@ app.get('/api/subscriptions/recent-videos', async (_req, res) => {
 });
 
 app.post('/api/subscriptions', async (req, res) => {
+  const ctx = getContext(req.studioUser);
   const body = req.body || {};
   const urlOnly =
     String(body.channelUrl || '').trim()
@@ -1446,7 +1510,7 @@ app.post('/api/subscriptions', async (req, res) => {
       const base = normalizeChannelBaseUrl(meta.channelUrl);
       const dupe =
         base
-        && subscriptions.some(
+        && ctx.subscriptions.some(
           (s) => normalizeChannelBaseUrl(s.channelUrl) === base,
         );
       if (dupe) {
@@ -1459,9 +1523,9 @@ app.post('/api/subscriptions', async (req, res) => {
         id: randomUUID(),
         updatedAt: Date.now(),
       });
-      subscriptions.push(ch);
-      saveSubscriptionsToDisk();
-      if (syncAccentsForVisibleTags()) saveStudioSettingsToDisk();
+      ctx.subscriptions.push(ch);
+      saveSubscriptionsToDisk(ctx);
+      if (syncAccentsForVisibleTags(ctx)) saveStudioSettingsToDisk(ctx);
       return res.json(ch);
     } catch (e) {
       return res.status(400).json({
@@ -1480,17 +1544,18 @@ app.post('/api/subscriptions', async (req, res) => {
     id: randomUUID(),
     updatedAt: Date.now(),
   });
-  subscriptions.push(ch);
-  saveSubscriptionsToDisk();
-  if (syncAccentsForVisibleTags()) saveStudioSettingsToDisk();
+  ctx.subscriptions.push(ch);
+  saveSubscriptionsToDisk(ctx);
+  if (syncAccentsForVisibleTags(ctx)) saveStudioSettingsToDisk(ctx);
   res.json(ch);
 });
 
 app.patch('/api/subscriptions/:id', (req, res) => {
-  const i = subscriptions.findIndex((c) => c.id === req.params.id);
+  const ctx = getContext(req.studioUser);
+  const i = ctx.subscriptions.findIndex((c) => c.id === req.params.id);
   if (i === -1) return res.status(404).json({ error: '未找到' });
   const body = req.body || {};
-  const cur = { ...subscriptions[i] };
+  const cur = { ...ctx.subscriptions[i] };
   const keys = [
     'name',
     'handle',
@@ -1506,25 +1571,26 @@ app.patch('/api/subscriptions/:id', (req, res) => {
     if (body[k] !== undefined) cur[k] = body[k];
   }
   cur.updatedAt = Date.now();
-  const next = sanitizeSubscription({ ...cur, id: subscriptions[i].id });
-  subscriptions[i] = next;
-  saveSubscriptionsToDisk();
-  if (syncAccentsForVisibleTags()) saveStudioSettingsToDisk();
+  const next = sanitizeSubscription({ ...cur, id: ctx.subscriptions[i].id });
+  ctx.subscriptions[i] = next;
+  saveSubscriptionsToDisk(ctx);
+  if (syncAccentsForVisibleTags(ctx)) saveStudioSettingsToDisk(ctx);
   res.json(next);
 });
 
 app.delete('/api/subscriptions/:id', (req, res) => {
-  const i = subscriptions.findIndex((c) => c.id === req.params.id);
+  const ctx = getContext(req.studioUser);
+  const i = ctx.subscriptions.findIndex((c) => c.id === req.params.id);
   if (i === -1) return res.status(404).json({ error: '未找到' });
-  subscriptions.splice(i, 1);
-  saveSubscriptionsToDisk();
-  if (syncAccentsForVisibleTags()) saveStudioSettingsToDisk();
+  ctx.subscriptions.splice(i, 1);
+  saveSubscriptionsToDisk(ctx);
+  if (syncAccentsForVisibleTags(ctx)) saveStudioSettingsToDisk(ctx);
   res.json({ ok: true });
 });
 
 const server = app.listen(PORT, () => {
   console.log(`API http://localhost:${PORT}`);
-  console.log(`下载目录: ${getDownloadDir()}`);
+  console.log(`用户数据: ${USERS_ROOT}  账号: ${[...ALLOWED_USERS].join(', ')}`);
 });
 server.on('error', (err) => {
   if (err && err.code === 'EADDRINUSE') {

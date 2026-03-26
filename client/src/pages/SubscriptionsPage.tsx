@@ -8,6 +8,7 @@ import {
 import { Link } from 'react-router-dom'
 import { useAvailableTags } from '../AvailableTagsContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { HeaderStudioUser } from '../components/HeaderStudioUser'
 import {
   createSubscription,
   deleteSubscription,
@@ -15,9 +16,6 @@ import {
   updateSubscription,
   type SubscriptionChannel,
 } from '../api'
-
-const PROFILE_IMG =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuCY2ps32Bl4qGmW_hCKgZRkr3xLcu5upNwA-avBcagBy8RZ3DK-qZv8zl_XgRFnBuMDzD0zONAM5WI0NbZGO6eWvhziDwoDEy1q8smiLyJ0xJNeEr-dpj5bOh7eytkoamETeL3kDj_bt7E_bp9i_SlRlRnBvLIGrvEks9e_kVlVLfsaVMsfx79GQbVdK7NCo5YmxYnHI2IrRfzSV1iqF3JUi8yI35D5dXrA0lIPAWH1uOyGAtVXiMryddasT7Uqi4SWHHzvJVssZU0F'
 
 function addTagDeduped(draft: string[], raw: string): string[] {
   const t = raw.trim()
@@ -255,13 +253,7 @@ export function SubscriptionsPage() {
           >
             <span className="material-symbols-outlined">download</span>
           </Link>
-          <div className="ml-2 h-10 w-10 overflow-hidden rounded-full border border-outline-variant/20">
-            <img
-              src={PROFILE_IMG}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-          </div>
+          <HeaderStudioUser size="md" className="ml-2" />
         </div>
       </header>
 

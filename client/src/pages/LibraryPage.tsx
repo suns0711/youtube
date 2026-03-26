@@ -6,13 +6,11 @@ import {
   FeedLoadingSkeleton,
   SearchResultsSkeleton,
 } from '../components/FeedLoadingSkeleton'
+import { HeaderStudioUser } from '../components/HeaderStudioUser'
 import { VideoCard } from '../components/VideoCard'
 import { VideoModal } from '../components/VideoModal'
 import { DEMO_FEED_VIDEOS } from '../data/demoFeed'
 import { buildDownloadsHref } from '../lib/downloadsNavigation'
-
-const PROFILE_IMG =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuC1xhA9L7G3xGsMqLa1ppWXUNugP25Y2CaP3x-8tX0AwNX_4Q04rJCH1UpBHLspjH95Iv5CxCw1ox6JXsBHcByh6_j3qkJ_VLH4kJ0zKl9zQITbuY7ynUuvYtk5qaBZi9Ln2zz464aDTlCjUnlIebTZM1tmmPnt3bBSkEN-R2swwb3pBCbDjJhnT5ib-D4LhcCxgXAZPLoXNFj3lfEsvoDS7rSCNInsHClffu1zEp1KoHZ1ZKyR68sYSpGRXZS72q0aBRfYPH8nU64X'
 
 function tagsMatchFilter(filterRaw: string, tag: string): boolean {
   return filterRaw.trim().toLowerCase() === tag.trim().toLowerCase()
@@ -152,13 +150,7 @@ export function LibraryPage() {
               <span className="material-symbols-outlined">settings</span>
             </Link>
           </div>
-          <div className="h-10 w-10 overflow-hidden rounded-full border border-outline-variant/30 p-0.5">
-            <img
-              src={PROFILE_IMG}
-              alt=""
-              className="h-full w-full rounded-full object-cover"
-            />
-          </div>
+          <HeaderStudioUser size="md" />
         </div>
       </header>
 

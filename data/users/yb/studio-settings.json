@@ -1,0 +1,14 @@
+{
+  "downloadDir": "/Users/lalala/Documents/website/youtube/data/downloads",
+  "tagMappings": [],
+  "hiddenTags": [],
+  "tagAccentByLabel": {
+    "B-ROLL": "cyan",
+    "Cinema": "mint",
+    "Gaming": "cyan",
+    "INTERVIEW": "coral",
+    "Music": "amber",
+    "Tech": "violet",
+    "Tutorials": "cyan"
+  }
+}

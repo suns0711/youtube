@@ -4,12 +4,16 @@ import { useAvailableTags } from '../AvailableTagsContext'
 import {
   getHealth,
   getStudioSettings,
+  getStudioUser,
   pickFolderPathWithDialog,
   saveStudioSettings,
+  setStudioUser,
+  STUDIO_USER_OPTIONS,
   type Health,
   type StudioSettings,
   type TagMapping,
 } from '../api'
+import { HeaderStudioUser } from '../components/HeaderStudioUser'
 import { StudioSelect } from '../components/StudioSelect'
 import { FALLBACK_STUDIO_TAGS } from '../lib/studioTags'
 
@@ -214,7 +218,7 @@ export function SettingsPage() {
           >
             <span className="material-symbols-outlined">download</span>
           </Link>
-          <div className="h-8 w-8 overflow-hidden rounded-full border border-outline-variant/20 bg-surface-container-high" />
+          <HeaderStudioUser size="sm" />
         </div>
       </header>
 
@@ -232,6 +236,34 @@ export function SettingsPage() {
           <p className="max-w-2xl text-on-surface-variant">
             配置本地下载目录与「标签 → 文件夹」映射；下载页会按频道标签解析保存位置。更改后需点击底部「保存更改」才会写入服务端。
           </p>
+          <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-outline-variant/15 bg-surface-container-low px-4 py-3">
+            <span className="text-xs font-bold text-on-surface-variant">
+              当前账号（数据按用户隔离）
+            </span>
+            <span className="font-mono text-sm text-primary">
+              {getStudioUser()}
+            </span>
+            <div className="flex gap-1">
+              {STUDIO_USER_OPTIONS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    if (id === getStudioUser()) return
+                    setStudioUser(id)
+                    window.location.reload()
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
+                    id === getStudioUser()
+                      ? 'bg-primary/20 text-primary'
+                      : 'text-on-surface-variant hover:bg-surface-container-high'
+                  }`}
+                >
+                  {id}
+                </button>
+              ))}
+            </div>
+          </div>
           {health && !health.ok ? (
             <p className="mt-3 text-sm text-error">
               无法使用 yt-dlp：{health.error}

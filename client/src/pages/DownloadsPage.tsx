@@ -615,7 +615,7 @@ export function DownloadsPage() {
                       className="h-4 w-4 rounded border-white/20 bg-surface-container-high text-primary focus:ring-2 focus:ring-white/35"
                     />
                     <span className="text-sm font-bold text-on-surface">
-                      下载视频封面（默认关闭）
+                      下载视频封面
                     </span>
                   </label>
                   {saveCoverImage ? (

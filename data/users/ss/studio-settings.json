@@ -12,6 +12,12 @@
       "tag": "NBA",
       "path": "/Users/lalala/Downloads/youtube/NBA",
       "dot": "primary"
+    },
+    {
+      "id": "d482edb9-c9da-4ee0-8052-711b0545876c",
+      "tag": "漂移车",
+      "path": "/Users/lalala/Downloads/youtube/工程车/RC_Car",
+      "dot": "tertiary"
     }
   ],
   "hiddenTags": [
@@ -35,6 +41,7 @@
     "Visual Effects": "mint",
     "RC工程车": "cyan",
     "Lego": "sky",
-    "NBA": "coral"
+    "NBA": "coral",
+    "漂移车": "sky"
   }
 }

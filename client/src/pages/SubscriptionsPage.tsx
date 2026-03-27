@@ -701,13 +701,13 @@ export function SubscriptionsPage() {
 
       {addOpen ? (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/72 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md rounded-xl border border-outline-variant/20 bg-surface-container-low p-6 shadow-2xl">
+          <div className="inner-highlight w-full max-w-md rounded-xl border border-white/16 bg-surface-container p-6 shadow-[0_24px_80px_rgba(0,0,0,0.75)] ring-1 ring-white/10">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-primary">添加频道</h3>
+              <h3 className="text-lg font-bold text-on-surface">添加频道</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -736,7 +736,7 @@ export function SubscriptionsPage() {
                 placeholder="https://www.youtube.com/@…"
                 value={addChannelUrl}
                 onChange={(e) => setAddChannelUrl(e.target.value)}
-                className="w-full resize-y rounded-lg border-0 bg-surface-container-lowest px-3 py-2 font-mono text-xs text-on-surface placeholder:text-on-surface-variant/40"
+                className="custom-scrollbar w-full resize-y rounded-lg border border-white/18 bg-surface-container-high px-3 py-2.5 font-mono text-xs text-on-surface shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] placeholder:text-on-surface-variant/45 focus:border-white/28 focus:outline-none focus:ring-2 focus:ring-white/22"
               />
               {addErr ? (
                 <p className="text-xs text-error">{addErr}</p>

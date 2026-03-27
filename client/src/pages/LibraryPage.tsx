@@ -20,7 +20,7 @@ import {
   SearchResultsSkeleton,
   SectionVideosSkeleton,
 } from '../components/FeedLoadingSkeleton'
-import { HeaderStudioUser } from '../components/HeaderStudioUser'
+import { PageHeaderToolbar } from '../components/PageHeaderToolbar'
 import { VideoCard } from '../components/VideoCard'
 
 const VideoModal = lazy(async () => {
@@ -215,22 +215,7 @@ export function LibraryPage() {
             首页
           </h2>
         </div>
-        <div className="ml-8 flex items-center gap-4">
-          <Link
-            to="/downloads"
-            className="relative rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary"
-          >
-            <span className="material-symbols-outlined">download</span>
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" />
-          </Link>
-          <Link
-            to="/settings"
-            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary"
-          >
-            <span className="material-symbols-outlined">settings</span>
-          </Link>
-          <HeaderStudioUser size="md" className="ml-2" />
-        </div>
+        <PageHeaderToolbar />
       </header>
 
       <div className="px-6 pb-16 md:px-10">

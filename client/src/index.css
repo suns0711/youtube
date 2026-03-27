@@ -23,6 +23,8 @@
   --color-outline: #525252;
   --color-outline-variant: #262626;
   --color-error: #f87171;
+  /* 完成态（如下载队列 100%） */
+  --color-success: #22c55e;
 }
 
 html.dark,

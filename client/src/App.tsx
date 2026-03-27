@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { DownloadQueueBadgeProvider } from './DownloadQueueBadgeContext'
 import { Layout } from './components/Layout'
 import { DownloadsPage } from './pages/DownloadsPage'
 import { LibraryPage } from './pages/LibraryPage'
@@ -9,6 +10,7 @@ import { TagsPage } from './pages/TagsPage'
 export default function App() {
   return (
     <BrowserRouter>
+      <DownloadQueueBadgeProvider>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<LibraryPage />} />
@@ -20,6 +22,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+      </DownloadQueueBadgeProvider>
     </BrowserRouter>
   )
 }

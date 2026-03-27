@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { removeStudioTag } from '../api'
 import { useAvailableTags } from '../AvailableTagsContext'
 import {
@@ -7,7 +6,7 @@ import {
   tagAccentPillClass,
 } from '../lib/tagAccentStyles'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { HeaderStudioUser } from '../components/HeaderStudioUser'
+import { PageHeaderToolbar } from '../components/PageHeaderToolbar'
 import { Toast } from '../components/Toast'
 
 export function TagsPage() {
@@ -52,15 +51,7 @@ export function TagsPage() {
             标签
           </h2>
         </div>
-        <div className="ml-8 flex items-center gap-4">
-          <Link
-            to="/downloads"
-            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high"
-          >
-            <span className="material-symbols-outlined">download</span>
-          </Link>
-          <HeaderStudioUser size="md" className="ml-2" />
-        </div>
+        <PageHeaderToolbar />
       </header>
 
       <div className="px-6 pb-16 pt-2 md:px-10">

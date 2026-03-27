@@ -339,14 +339,25 @@ export async function suggestDownloadOutput(
 export async function startDownload(
   url: string,
   quality: string,
-  opts?: { outputDir?: string },
+  opts?: {
+    outputDir?: string
+    /** 与封面一并保存时的格式；不传则不下载封面 */
+    thumbnailFormat?: 'webp' | 'jpg' | null
+  },
 ): Promise<{ jobId: string }> {
-  const body: { url: string; quality: string; outputDir?: string } = {
+  const body: {
+    url: string
+    quality: string
+    outputDir?: string
+    thumbnailFormat?: 'webp' | 'jpg'
+  } = {
     url,
     quality,
   }
   const od = opts?.outputDir?.trim()
   if (od) body.outputDir = od
+  const tf = opts?.thumbnailFormat
+  if (tf === 'webp' || tf === 'jpg') body.thumbnailFormat = tf
   const res = await apiFetch(`${base}/api/download`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -382,6 +393,17 @@ export async function openDownloadDirInFileManager(): Promise<{ ok: boolean }> {
   const res = await apiFetch(`${base}/api/open-download-dir`, {
     method: 'POST',
   })
+  return parseJson(res)
+}
+
+/** 在后端本机文件管理器中显示该任务已下载的文件（Windows 选中、macOS Finder 显露等） */
+export async function revealDownloadedFileInFolder(
+  jobId: string,
+): Promise<{ ok: boolean }> {
+  const res = await apiFetch(
+    `${base}/api/download/${encodeURIComponent(jobId)}/reveal-in-folder`,
+    { method: 'POST' },
+  )
   return parseJson(res)
 }
 

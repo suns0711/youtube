@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
   clearAllDownloadJobs,
   deleteDownloadJob,
@@ -14,14 +14,16 @@ import {
   listJobs,
   openDownloadDirInFileManager,
   pickDownloadDirWithDialog,
+  revealDownloadedFileInFolder,
   startDownload,
   suggestDownloadOutput,
   type DownloadJob,
 } from '../api'
 import { useAvailableTags } from '../AvailableTagsContext'
+import { DOWNLOAD_QUEUE_SECTION_ID } from '../lib/downloadsNavigation'
 import { resolveTagMappedDownloadPath } from '../lib/resolveTagDownloadPath'
 import { isAllowedYoutubeUrl, youtubeIdFromUrl } from '../util'
-import { HeaderStudioUser } from '../components/HeaderStudioUser'
+import { PageHeaderToolbar } from '../components/PageHeaderToolbar'
 
 const QUALITIES: { id: string; label: string }[] = [
   { id: '2160', label: '4K（2160p）' },
@@ -209,6 +211,7 @@ function progressWidth(job: DownloadJob): number {
 
 export function DownloadsPage() {
   const { refresh: refreshGlobalStudio } = useAvailableTags()
+  const location = useLocation()
   const [params] = useSearchParams()
   const urlFromQuery = params.get('url') || ''
   const channelTagsRaw = params.get('channelTags')
@@ -227,6 +230,9 @@ export function DownloadsPage() {
   /** 多行时：上一任务完成（或失败）后，再经 [min,max] 秒内随机等待后发起下一任务 */
   const [intervalMinSec, setIntervalMinSec] = useState(5)
   const [intervalMaxSec, setIntervalMaxSec] = useState(20)
+  /** 是否与视频同目录保存封面（默认关闭）；开启后通过 coverFormat 选 .webp / .jpg */
+  const [saveCoverImage, setSaveCoverImage] = useState(false)
+  const [coverFormat, setCoverFormat] = useState<'webp' | 'jpg'>('webp')
   const [downloadPath, setDownloadPath] = useState('')
   /** 默认目录等已从设置拉取（失败也会置 true，路径可能为空） */
   const [settingsLoaded, setSettingsLoaded] = useState(false)
@@ -323,6 +329,17 @@ export function DownloadsPage() {
     const t = setInterval(refreshList, 3500)
     return () => clearInterval(t)
   }, [])
+
+  useEffect(() => {
+    const raw = location.hash.replace(/^#/, '')
+    if (raw !== DOWNLOAD_QUEUE_SECTION_ID) return
+    const el = document.getElementById(DOWNLOAD_QUEUE_SECTION_ID)
+    if (!el) return
+    const frame = window.requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.pathname, location.hash])
 
   /** 进行中任务也拉入快轮询，避免仅靠 3.5s 列表刷新时进度条卡住 */
   useEffect(() => {
@@ -456,6 +473,7 @@ export function DownloadsPage() {
         }
         const { jobId } = await startDownload(lines[i], quality, {
           outputDir: downloadPath.trim() || undefined,
+          thumbnailFormat: saveCoverImage ? coverFormat : null,
         })
         prevJobId = jobId
         setPollIds((s) => new Set(s).add(jobId))
@@ -470,6 +488,13 @@ export function DownloadsPage() {
       setInterTaskWait(null)
       setBusy(false)
     }
+  }
+
+  const openCompletedJobInFolder = (job: DownloadJob) => {
+    if (job.status !== 'complete' || !job.filePath?.trim()) return
+    void revealDownloadedFileInFolder(job.id).catch((e: Error) => {
+      setMsg(e.message || '无法在文件夹中显示')
+    })
   }
 
   const removeJob = async (id: string) => {
@@ -505,21 +530,7 @@ export function DownloadsPage() {
             下载
           </h2>
         </div>
-        <div className="ml-8 flex items-center gap-4">
-          <button
-            type="button"
-            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low active:scale-95"
-          >
-            <span className="material-symbols-outlined">download</span>
-          </button>
-          <Link
-            to="/settings"
-            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low active:scale-95"
-          >
-            <span className="material-symbols-outlined">settings</span>
-          </Link>
-          <HeaderStudioUser size="sm" className="ml-2" />
-        </div>
+        <PageHeaderToolbar />
       </header>
 
       <div className="mx-auto w-full max-w-5xl space-y-12 px-6 pb-32 pt-2 md:px-10">
@@ -581,6 +592,55 @@ export function DownloadsPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+                <div className="space-y-3">
+                  <LabelWithHint
+                    hintSummary="默认不下载封面。勾选后与视频同目录保存；需本机已安装 ffmpeg 供转码"
+                    hint={
+                      <p>
+                        默认关闭。勾选后由 yt-dlp
+                        写入并转码封面；选择 WebP 或 JPG，文件名与视频标题一致。未安装 ffmpeg
+                        时转码可能失败导致整次下载报错。
+                      </p>
+                    }
+                  >
+                    封面图
+                  </LabelWithHint>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-surface-container-highest px-3 py-2.5 transition-colors hover:border-white/16">
+                    <input
+                      type="checkbox"
+                      checked={saveCoverImage}
+                      onChange={(e) => setSaveCoverImage(e.target.checked)}
+                      autoComplete="off"
+                      className="h-4 w-4 rounded border-white/20 bg-surface-container-high text-primary focus:ring-2 focus:ring-white/35"
+                    />
+                    <span className="text-sm font-bold text-on-surface">
+                      下载视频封面（默认关闭）
+                    </span>
+                  </label>
+                  {saveCoverImage ? (
+                    <div className="grid grid-cols-2 gap-2 pl-1">
+                      {(
+                        [
+                          { id: 'webp' as const, label: '.webp' },
+                          { id: 'jpg' as const, label: '.jpg' },
+                        ] as const
+                      ).map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setCoverFormat(f.id)}
+                          className={`rounded-lg border px-3 py-2.5 text-xs font-bold transition-all ${
+                            coverFormat === f.id
+                              ? 'border-white/25 bg-primary-container text-on-primary-container shadow-[0_0_0_1px_rgba(255,255,255,0.12)]'
+                              : 'border-white/10 bg-surface-container-highest text-on-surface-variant/55 hover:border-white/16 hover:bg-surface-container-high hover:text-on-surface-variant'
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="space-y-6">
@@ -772,7 +832,10 @@ export function DownloadsPage() {
             ) : null}
           </div>
 
-          <div className="space-y-6">
+          <div
+            id={DOWNLOAD_QUEUE_SECTION_ID}
+            className="scroll-mt-28 space-y-6"
+          >
             <div className="flex flex-wrap items-end justify-between gap-4">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <LabelWithHint
@@ -823,15 +886,44 @@ export function DownloadsPage() {
                   duplicateUrlKeys,
                   duplicateTitleKeys,
                 )
+                const canRevealCompleted = Boolean(
+                  isDone && job.filePath?.trim(),
+                )
                 return (
                   <div
                     key={job.id}
+                    role={canRevealCompleted ? 'button' : undefined}
+                    tabIndex={canRevealCompleted ? 0 : undefined}
+                    title={
+                      canRevealCompleted
+                        ? '在文件夹中显示已下载文件'
+                        : undefined
+                    }
+                    onClick={
+                      canRevealCompleted
+                        ? () => openCompletedJobInFolder(job)
+                        : undefined
+                    }
+                    onKeyDown={
+                      canRevealCompleted
+                        ? (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              openCompletedJobInFolder(job)
+                            }
+                          }
+                        : undefined
+                    }
                     className={`group flex items-center gap-4 rounded-xl border p-4 transition-all sm:gap-6 md:p-4 ${
                       isErr
                         ? 'border-error/20 bg-error/5'
                         : dup
                           ? 'border-primary/20 bg-primary/[0.06] hover:border-primary/30'
                           : 'border-outline-variant/10 bg-surface-container-high hover:border-primary/30'
+                    }${
+                      canRevealCompleted
+                        ? ' cursor-pointer hover:bg-surface-container-highest/75 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
+                        : ''
                     }`}
                   >
                     <div
@@ -878,7 +970,11 @@ export function DownloadsPage() {
                       <div className="space-y-1">
                         <div className="h-1 w-full overflow-hidden rounded-full bg-surface-container-highest">
                           <div
-                            className="h-full bg-primary shadow-[0_0_10px_rgba(255,255,255,0.35)] transition-[width] duration-300"
+                            className={`h-full transition-[width] duration-300 ${
+                              isDone
+                                ? 'bg-success shadow-[0_0_10px_rgba(34,197,94,0.35)]'
+                                : 'bg-primary shadow-[0_0_10px_rgba(255,255,255,0.35)]'
+                            }`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -904,7 +1000,10 @@ export function DownloadsPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => void removeJob(job.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        void removeJob(job.id)
+                      }}
                       className="shrink-0 p-2 text-on-surface-variant transition-colors hover:text-error"
                       aria-label="从队列移除"
                     >

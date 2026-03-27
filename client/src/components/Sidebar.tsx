@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAvailableTags } from '../AvailableTagsContext'
+import { useDownloadQueueBadge } from '../DownloadQueueBadgeContext'
+import {
+  DOWNLOAD_QUEUE_BADGE_DOT_CLASS,
+  downloadsPageQueueHref,
+} from '../lib/downloadsNavigation'
 import {
   resolveTagAccentId,
   tagAccentPillClass,
@@ -37,6 +42,8 @@ export function Sidebar() {
   const { tags: filterTags, tagAccentByLabel } = useAvailableTags()
   const activeFeedTag = (searchParams.get('feedTag') || '').trim()
   const [collapsed, setCollapsed] = useState(() => readSidebarCollapsed())
+  const { showDownloadCompleteBadge, acknowledgeDownloadBadge } =
+    useDownloadQueueBadge()
 
   useEffect(() => {
     try {
@@ -145,12 +152,21 @@ export function Sidebar() {
           {!collapsed ? '首页' : null}
         </NavLink>
         <NavLink
-          to="/downloads"
+          to={downloadsPageQueueHref()}
           title={collapsed ? '下载' : undefined}
           className={({ isActive }) => `${navClass} ${isActive ? active : inactive}`}
+          onClick={() => acknowledgeDownloadBadge()}
         >
-          <span className="material-symbols-outlined shrink-0">
-            download_for_offline
+          <span className="relative inline-flex shrink-0">
+            <span className="material-symbols-outlined shrink-0">
+              download_for_offline
+            </span>
+            {showDownloadCompleteBadge ? (
+              <span
+                className={`absolute -right-0.5 -top-0.5 ${DOWNLOAD_QUEUE_BADGE_DOT_CLASS}`}
+                aria-hidden
+              />
+            ) : null}
           </span>
           {!collapsed ? '下载' : null}
         </NavLink>

@@ -488,8 +488,11 @@ function uniqueFilePathInDir(destPath) {
   }
 }
 
+const THUMB_SIDE_EXT = new Set(['.jpg', '.jpeg', '.webp', '.png']);
+
 /**
  * 在独立 staging 目录下载完成后，将主媒体文件移到 outputDir，文件名为视频标题（与重名处理）。
+ * 若曾请求封面图，将同目录下的缩略图文件一并移入 outputDir。
  */
 function finalizeStagedYoutubeDownload(stagingDir, outputDir) {
   let names;
@@ -525,6 +528,14 @@ function finalizeStagedYoutubeDownload(stagingDir, outputDir) {
   let destPath = path.join(outputDir, chosen.f);
   destPath = uniqueFilePathInDir(destPath);
   fs.renameSync(chosen.p, destPath);
+  for (let i = 1; i < scored.length; i += 1) {
+    const item = scored[i];
+    const ext = path.extname(item.f).toLowerCase();
+    if (!THUMB_SIDE_EXT.has(ext)) continue;
+    let sideDest = path.join(outputDir, item.f);
+    sideDest = uniqueFilePathInDir(sideDest);
+    fs.renameSync(item.p, sideDest);
+  }
   try {
     fs.rmSync(stagingDir, { recursive: true, force: true });
   } catch {
@@ -1057,6 +1068,70 @@ function openDownloadDirInOsFileManager(ctx) {
   });
 }
 
+/**
+ * 在系统文件管理器中定位到已下载文件（Windows 选中项、macOS Finder 显露）。
+ * Linux：尝试 nautilus/dolphin --select，否则打开所在目录。
+ */
+function revealFileInOsFileManager(absFilePath) {
+  const resolved = path.resolve(String(absFilePath || ''));
+  if (!resolved) {
+    return Promise.reject(new Error('路径无效'));
+  }
+  if (!fs.existsSync(resolved)) {
+    return Promise.reject(new Error('文件不存在或已被移动'));
+  }
+  let st;
+  try {
+    st = fs.statSync(resolved);
+  } catch {
+    return Promise.reject(new Error('无法访问文件'));
+  }
+  if (!st.isFile()) {
+    return Promise.reject(new Error('路径不是文件'));
+  }
+  return new Promise((resolve, reject) => {
+    if (process.platform === 'win32') {
+      execFile(
+        'explorer.exe',
+        [`/select,${resolved}`],
+        { windowsHide: true },
+        (err) => (err ? reject(err) : resolve()),
+      );
+    } else if (process.platform === 'darwin') {
+      execFile('open', ['-R', resolved], (err) =>
+        err ? reject(err) : resolve(),
+      );
+    } else {
+      const dir = path.dirname(resolved);
+      execFile(
+        'nautilus',
+        ['--select', resolved],
+        { windowsHide: true },
+        (err) => {
+          if (!err) {
+            resolve();
+            return;
+          }
+          execFile(
+            'dolphin',
+            ['--select', resolved],
+            { windowsHide: true },
+            (err2) => {
+              if (!err2) {
+                resolve();
+                return;
+              }
+              execFile('xdg-open', [dir], (err3) =>
+                err3 ? reject(err3) : resolve(),
+              );
+            },
+          );
+        },
+      );
+    }
+  });
+}
+
 app.post('/api/open-download-dir', async (req, res) => {
   try {
     const ctx = getContext(req.studioUser);
@@ -1456,6 +1531,11 @@ app.post('/api/download', (req, res) => {
     outputDir = dirResult.path;
   }
   const fmt = formatForQuality(quality === 'best' ? 'best' : quality);
+  let thumbnailFormat = null;
+  const tfRaw = req.body?.thumbnailFormat;
+  if (tfRaw === 'webp' || tfRaw === 'jpg') {
+    thumbnailFormat = tfRaw;
+  }
   const jobId = randomUUID();
   /** 先写入系统临时目录，完成后以视频标题迁入目标目录，避免并行任务与 junk 文件夹 */
   const stagingDir = path.join(tmpdir(), `youtube-studio-dl-${jobId}`);
@@ -1530,6 +1610,16 @@ app.post('/api/download', (req, res) => {
     '--no-playlist',
     '--newline',
   ];
+  if (thumbnailFormat) {
+    ytdlpArgs.push(
+      '--write-thumbnail',
+      '--convert-thumbnails',
+      thumbnailFormat,
+    );
+  } else {
+    /** 默认不写封面；覆盖用户本机 yt-dlp 配置里可能启用的 write/embed 缩略图 */
+    ytdlpArgs.push('--no-write-thumbnail', '--no-embed-thumbnail');
+  }
   if (process.platform === 'win32') {
     ytdlpArgs.push('--windows-filenames');
   }
@@ -1594,6 +1684,26 @@ app.get('/api/download/:jobId', (req, res) => {
   }
   const { _stderrTail, stagingDir: _sd, studioUser: _su, ...rest } = job;
   res.json(rest);
+});
+
+app.post('/api/download/:jobId/reveal-in-folder', async (req, res) => {
+  try {
+    const job = jobs.get(req.params.jobId);
+    if (!job || job.studioUser !== req.studioUser) {
+      return res.status(404).json({ error: '任务不存在' });
+    }
+    if (job.status !== 'complete') {
+      return res.status(400).json({ error: '仅已完成任务可在文件夹中显示' });
+    }
+    const fp = job.filePath && String(job.filePath).trim();
+    if (!fp) {
+      return res.status(400).json({ error: '无保存路径' });
+    }
+    await revealFileInOsFileManager(fp);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: String(e.message || e) });
+  }
 });
 
 app.get('/api/downloads', (req, res) => {

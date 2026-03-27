@@ -19,8 +19,13 @@ import {
 import {
   resolveTagAccentId,
   tagAccentPillClass,
+  tagFeedFilterSelectedOverlayClass,
 } from '../lib/tagAccentStyles'
 import { externalYoutubeChannelUrl } from '../util'
+
+function tagsMatchFilter(filterRaw: string, tag: string): boolean {
+  return filterRaw.trim().toLowerCase() === tag.trim().toLowerCase()
+}
 
 function addTagDeduped(draft: string[], raw: string): string[] {
   const t = raw.trim()
@@ -30,7 +35,7 @@ function addTagDeduped(draft: string[], raw: string): string[] {
 }
 
 export function SubscriptionsPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { refresh: refreshGlobalTags, tags: studioTagOptions, tagAccentByLabel } =
     useAvailableTags()
   const [channels, setChannels] = useState<SubscriptionChannel[]>([])
@@ -62,6 +67,61 @@ export function SubscriptionsPage() {
     return [...s].sort((a, b) => a.localeCompare(b))
   }, [studioTagOptions, channels])
 
+  /** 至少被一个订阅频道使用过的标签，用于筛选条（无标签时不展示筛选） */
+  const tagsUsedOnChannels = useMemo(() => {
+    const s = new Set<string>()
+    for (const c of channels) {
+      for (const t of c.tags) {
+        const u = String(t || '').trim()
+        if (u) s.add(u)
+      }
+    }
+    return [...s].sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: 'base' }),
+    )
+  }, [channels])
+
+  const feedTagFilter = (searchParams.get('feedTag') || '').trim()
+
+  const visibleChannels = useMemo(() => {
+    if (!feedTagFilter) return channels
+    return channels.filter((c) =>
+      c.tags.some((t) => tagsMatchFilter(feedTagFilter, String(t))),
+    )
+  }, [channels, feedTagFilter])
+
+  const selectFeedTag = useCallback(
+    (label: string) => {
+      const trimmed = label.trim()
+      if (!trimmed) return
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          const cur = (next.get('feedTag') || '').trim()
+          if (cur.toLowerCase() === trimmed.toLowerCase()) {
+            next.delete('feedTag')
+          } else {
+            next.set('feedTag', trimmed)
+          }
+          return next
+        },
+        { replace: true },
+      )
+    },
+    [setSearchParams],
+  )
+
+  const clearFeedTag = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('feedTag')
+        return next
+      },
+      { replace: true },
+    )
+  }, [setSearchParams])
+
   const filteredPickTags = useMemo(() => {
     const q = tagInput.trim().toLowerCase()
     return tagPool.filter(
@@ -90,8 +150,8 @@ export function SubscriptionsPage() {
   /** 从首页等带入 ?channel=id：滚动到卡片并短暂高亮 */
   useEffect(() => {
     const raw = (searchParams.get('channel') || '').trim()
-    if (!raw || loading || channels.length === 0) return
-    const hit = channels.some((c) => c.id === raw)
+    if (!raw || loading || visibleChannels.length === 0) return
+    const hit = visibleChannels.some((c) => c.id === raw)
     if (!hit) return
     const frame = requestAnimationFrame(() => {
       document
@@ -99,9 +159,19 @@ export function SubscriptionsPage() {
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
     return () => cancelAnimationFrame(frame)
-  }, [searchParams, loading, channels])
+  }, [searchParams, loading, visibleChannels])
 
   const focusChannelId = (searchParams.get('channel') || '').trim()
+
+  const subscriptionsChannelLink = useCallback(
+    (channelId: string) => {
+      const q = new URLSearchParams()
+      q.set('channel', channelId)
+      if (feedTagFilter) q.set('feedTag', feedTagFilter)
+      return `/subscriptions?${q.toString()}`
+    },
+    [feedTagFilter],
+  )
 
   const toggleNotifications = async (c: SubscriptionChannel) => {
     try {
@@ -253,14 +323,49 @@ export function SubscriptionsPage() {
       </header>
 
       <section className="mt-8 px-6 pb-20 md:px-10">
-        <div className="relative z-[25] mb-12 flex justify-end">
+        <div className="relative z-[25] mb-10 flex flex-col gap-6 lg:mb-12 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
+          {!loading && tagsUsedOnChannels.length > 0 ? (
+            <div className="min-w-0 flex-1 space-y-3">
+              <span className="block text-[11px] font-black uppercase tracking-widest text-on-surface-variant/70">
+                按标签筛选
+              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {tagsUsedOnChannels.map((t) => {
+                  const accent = resolveTagAccentId(t, tagAccentByLabel)
+                  const cls = tagAccentPillClass(accent, false)
+                  const selected = tagsMatchFilter(feedTagFilter, t)
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => selectFeedTag(t)}
+                      className={`cursor-pointer rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${cls} ${
+                        selected ? tagFeedFilterSelectedOverlayClass : ''
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  )
+                })}
+                {feedTagFilter ? (
+                  <button
+                    type="button"
+                    onClick={clearFeedTag}
+                    className="rounded-full border border-outline-variant/25 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant transition-colors hover:bg-surface-container-high"
+                  >
+                    清除筛选
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <button
             type="button"
             onClick={() => {
               setAddErr(null)
               setAddOpen(true)
             }}
-            className="red-glow-btn flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-bold text-on-primary-container transition-transform active:scale-95"
+            className="red-glow-btn flex shrink-0 items-center justify-center gap-2 self-start rounded-lg px-6 py-2.5 text-sm font-bold text-on-primary-container transition-transform active:scale-95 lg:self-auto"
           >
             <span className="material-symbols-outlined">person_add</span>
             添加频道
@@ -271,8 +376,24 @@ export function SubscriptionsPage() {
           <p className="text-on-surface-variant">正在加载频道…</p>
         ) : null}
 
+        {!loading
+        && channels.length > 0
+        && feedTagFilter
+        && visibleChannels.length === 0 ? (
+          <p className="mb-8 text-sm text-on-surface-variant">
+            没有带标签「{feedTagFilter}」的频道。{' '}
+            <button
+              type="button"
+              className="font-semibold text-primary hover:underline"
+              onClick={clearFeedTag}
+            >
+              清除筛选
+            </button>
+          </p>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {channels.map((c) => {
+          {visibleChannels.map((c) => {
             const ytChannel = externalYoutubeChannelUrl(c.channelUrl)
             const avatarWrap = (
               <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-primary/20 p-0.5">
@@ -319,19 +440,37 @@ export function SubscriptionsPage() {
                   ) : (
                     avatarWrap
                   )}
-                  <Link
-                    to={`/subscriptions?channel=${encodeURIComponent(c.id)}`}
-                    className="min-w-0 flex-1 rounded-xl p-1 -m-1 outline-none transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-2 focus-visible:ring-primary/50"
-                    title="在本页定位到此频道"
-                  >
-                    <h3 className="font-bold text-on-surface group-hover:text-primary">
-                      {c.name}
-                    </h3>
-                    <p className="font-mono text-xs tracking-tighter text-on-surface-variant/60">
-                      {c.handle} • {c.subscriberLabel}
-                      {c.videoCountLabel ? ` • ${c.videoCountLabel}` : ''}
-                    </p>
-                  </Link>
+                  {ytChannel ? (
+                    <a
+                      href={ytChannel}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="min-w-0 flex-1 rounded-xl p-1 -m-1 outline-none transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-2 focus-visible:ring-primary/50"
+                      title="在 YouTube 打开频道"
+                    >
+                      <h3 className="font-bold text-on-surface group-hover:text-primary">
+                        {c.name}
+                      </h3>
+                      <p className="font-mono text-xs tracking-tighter text-on-surface-variant/60">
+                        {c.handle} • {c.subscriberLabel}
+                        {c.videoCountLabel ? ` • ${c.videoCountLabel}` : ''}
+                      </p>
+                    </a>
+                  ) : (
+                    <Link
+                      to={subscriptionsChannelLink(c.id)}
+                      className="min-w-0 flex-1 rounded-xl p-1 -m-1 outline-none transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-2 focus-visible:ring-primary/50"
+                      title="在本页定位到此频道"
+                    >
+                      <h3 className="font-bold text-on-surface group-hover:text-primary">
+                        {c.name}
+                      </h3>
+                      <p className="font-mono text-xs tracking-tighter text-on-surface-variant/60">
+                        {c.handle} • {c.subscriberLabel}
+                        {c.videoCountLabel ? ` • ${c.videoCountLabel}` : ''}
+                      </p>
+                    </Link>
+                  )}
                 </div>
                 <div className="relative shrink-0">
                   <button
@@ -364,13 +503,20 @@ export function SubscriptionsPage() {
               <div className="mb-8 flex flex-wrap gap-2">
                 {c.tags.map((tag, i) => {
                   const accent = resolveTagAccentId(tag, tagAccentByLabel)
+                  const cls = tagAccentPillClass(accent, false)
+                  const selected = tagsMatchFilter(feedTagFilter, String(tag))
                   return (
-                    <span
+                    <button
                       key={`${c.id}-${tag}-${i}`}
-                      className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${tagAccentPillClass(accent, false)}`}
+                      type="button"
+                      title="按此标签筛选"
+                      onClick={() => selectFeedTag(tag)}
+                      className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${cls} ${
+                        selected ? tagFeedFilterSelectedOverlayClass : ''
+                      }`}
                     >
                       {tag}
-                    </span>
+                    </button>
                   )
                 })}
               </div>

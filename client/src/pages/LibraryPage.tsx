@@ -382,18 +382,35 @@ export function LibraryPage() {
                           ) : (
                             <div className="shrink-0">{avatarInner}</div>
                           )}
-                          <Link
-                            to={`/subscriptions?channel=${encodeURIComponent(section.subscriptionId)}`}
-                            className="min-w-0 flex-1 rounded-lg px-0.5 py-0.5 text-left outline-none transition-colors hover:bg-surface-container-high/55 focus-visible:ring-2 focus-visible:ring-primary/45"
-                            title="在频道页打开此订阅"
-                          >
-                            <h3 className="text-xl font-bold tracking-tight text-on-surface group-hover/ch:text-primary">
-                              {section.channelName}
-                            </h3>
-                            <p className="text-sm text-on-surface-variant">
-                              {section.handle}
-                            </p>
-                          </Link>
+                          {ytChannel ? (
+                            <a
+                              href={ytChannel}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="min-w-0 flex-1 rounded-lg px-0.5 py-0.5 text-left outline-none transition-colors hover:bg-surface-container-high/55 focus-visible:ring-2 focus-visible:ring-primary/45"
+                              title="在 YouTube 打开频道"
+                            >
+                              <h3 className="text-xl font-bold tracking-tight text-on-surface group-hover/ch:text-primary">
+                                {section.channelName}
+                              </h3>
+                              <p className="text-sm text-on-surface-variant">
+                                {section.handle}
+                              </p>
+                            </a>
+                          ) : (
+                            <Link
+                              to={`/subscriptions?channel=${encodeURIComponent(section.subscriptionId)}`}
+                              className="min-w-0 flex-1 rounded-lg px-0.5 py-0.5 text-left outline-none transition-colors hover:bg-surface-container-high/55 focus-visible:ring-2 focus-visible:ring-primary/45"
+                              title="在频道页打开此订阅"
+                            >
+                              <h3 className="text-xl font-bold tracking-tight text-on-surface group-hover/ch:text-primary">
+                                {section.channelName}
+                              </h3>
+                              <p className="text-sm text-on-surface-variant">
+                                {section.handle}
+                              </p>
+                            </Link>
+                          )}
                         </div>
                         {tagRow}
                       </div>

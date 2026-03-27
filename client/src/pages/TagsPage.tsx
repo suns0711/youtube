@@ -67,7 +67,7 @@ export function TagsPage() {
         <div className="mb-10">
           <p className="max-w-2xl text-on-surface-variant">
             点击标签可展开并移除。移除后该标签将从侧栏、本页与设置中的下拉选项里隐藏，并会从订阅频道与「标签 →
-            文件夹」映射中一并清除；内置预设标签也可通过此处从列表中去掉。
+            文件夹」映射中一并清除。
           </p>
           {error ? (
             <p className="mt-2 text-sm text-error">标签列表加载失败：{error}</p>

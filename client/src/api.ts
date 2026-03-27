@@ -2,8 +2,14 @@ const base = ''
 
 export const STUDIO_USER_STORAGE_KEY = 'studio-user'
 
-/** 与后端 ALLOWED_USERS（默认 ss,yb）保持一致，仅用于 UI 展示 */
-export const STUDIO_USER_OPTIONS = ['ss', 'yb'] as const
+/** 请求失败或首屏前用于头像/切换器占位；服务端以 data/studio-users.json 为准 */
+export const FALLBACK_STUDIO_USER_IDS = ['ss', 'yb'] as const
+
+/** @deprecated 使用 FALLBACK_STUDIO_USER_IDS 或 GET /api/studio-users */
+export const STUDIO_USER_OPTIONS = FALLBACK_STUDIO_USER_IDS
+
+/** 添加/删除用户后广播，供顶栏切换列表等刷新 */
+export const STUDIO_USERS_CHANGED_EVENT = 'studio-users-changed'
 
 export function getStudioUser(): string {
   if (typeof localStorage === 'undefined') return 'ss'
@@ -88,6 +94,8 @@ export type Health = {
   ytDlp?: string
   downloadDir?: string
   binary?: string
+  usersRoot?: string
+  allowedUsers?: string[]
   error?: string
   hint?: string
 }
@@ -102,7 +110,7 @@ export type TagMapping = {
 export type StudioSettings = {
   downloadDir: string
   tagMappings: TagMapping[]
-  /** 侧栏预设 + 订阅标签 + 当前映射汇总；仅服务端填充 */
+  /** 订阅标签 + 映射等汇总；仅服务端填充 */
   availableTags?: string[]
   /** 标签 → 展示色键（服务端随机分配并持久化） */
   tagAccentByLabel?: Record<string, string>
@@ -115,6 +123,37 @@ export type StudioSettings = {
 export async function getHealth(): Promise<Health> {
   const res = await fetch(`${base}/api/health`)
   return (await res.json().catch(() => ({ ok: false }))) as Health
+}
+
+export async function listStudioUsers(): Promise<{ users: string[] }> {
+  const res = await apiFetch(`${base}/api/studio-users`)
+  return parseJson(res)
+}
+
+export async function addStudioUser(userId: string): Promise<{ users: string[] }> {
+  const res = await apiFetch(`${base}/api/studio-users`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: userId.trim().toLowerCase() }),
+  })
+  return parseJson(res)
+}
+
+export async function removeStudioUser(
+  userId: string,
+): Promise<{ users: string[] }> {
+  const id = encodeURIComponent(userId.trim().toLowerCase())
+  const res = await apiFetch(`${base}/api/studio-users/${id}`, {
+    method: 'DELETE',
+  })
+  return parseJson(res)
+}
+
+export function emitStudioUsersChanged(users: string[]) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(
+    new CustomEvent(STUDIO_USERS_CHANGED_EVENT, { detail: { users } }),
+  )
 }
 
 export type FeedSort = 'activity' | 'recent' | 'popular'

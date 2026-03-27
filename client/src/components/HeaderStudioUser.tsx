@@ -5,9 +5,11 @@ import {
   useState,
 } from 'react'
 import {
+  FALLBACK_STUDIO_USER_IDS,
+  getHealth,
   getStudioUser,
   setStudioUser,
-  STUDIO_USER_OPTIONS,
+  STUDIO_USERS_CHANGED_EVENT,
 } from '../api'
 import { studioUserAvatarUrl } from '../lib/studioUserAvatar'
 
@@ -27,7 +29,25 @@ type Props = {
 export function HeaderStudioUser({ size = 'md', className = '' }: Props) {
   const studioUser = getStudioUser()
   const [open, setOpen] = useState(false)
+  const [userOptions, setUserOptions] = useState<string[]>(() => [
+    ...FALLBACK_STUDIO_USER_IDS,
+  ])
   const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const apply = (list: string[]) => {
+      if (list.length > 0) setUserOptions([...list])
+    }
+    void getHealth().then((h) => {
+      if (h.allowedUsers?.length) apply(h.allowedUsers)
+    })
+    const onChanged = (e: Event) => {
+      const d = (e as CustomEvent<{ users: string[] }>).detail?.users
+      if (Array.isArray(d)) apply(d)
+    }
+    window.addEventListener(STUDIO_USERS_CHANGED_EVENT, onChanged)
+    return () => window.removeEventListener(STUDIO_USERS_CHANGED_EVENT, onChanged)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -88,7 +108,7 @@ export function HeaderStudioUser({ size = 'md', className = '' }: Props) {
           <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-outline">
             切换账号
           </p>
-          {STUDIO_USER_OPTIONS.map((id) => (
+          {userOptions.map((id) => (
             <button
               key={id}
               type="button"

@@ -2,17 +2,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAvailableTags } from '../AvailableTagsContext'
 import {
+  addStudioUser,
+  emitStudioUsersChanged,
+  FALLBACK_STUDIO_USER_IDS,
   getHealth,
   getStudioSettings,
   getStudioUser,
+  listStudioUsers,
   pickFolderPathWithDialog,
+  removeStudioUser,
   saveStudioSettings,
   setStudioUser,
-  STUDIO_USER_OPTIONS,
   type Health,
   type StudioSettings,
   type TagMapping,
 } from '../api'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { HeaderStudioUser } from '../components/HeaderStudioUser'
 import { StudioSelect } from '../components/StudioSelect'
 import { FALLBACK_STUDIO_TAGS } from '../lib/studioTags'
@@ -56,14 +61,39 @@ export function SettingsPage() {
   const [downloadDirPickErr, setDownloadDirPickErr] = useState<string | null>(
     null,
   )
+  const [studioUserIds, setStudioUserIds] = useState<string[]>(() => [
+    ...FALLBACK_STUDIO_USER_IDS,
+  ])
+  const [pendingNewUsers, setPendingNewUsers] = useState<
+    { id: string; value: string }[]
+  >([])
+  const [userManageErr, setUserManageErr] = useState<string | null>(null)
+  const [committingDraftId, setCommittingDraftId] = useState<string | null>(
+    null,
+  )
+  const [removeUserTarget, setRemoveUserTarget] = useState<string | null>(
+    null,
+  )
+  const [removeUserLoading, setRemoveUserLoading] = useState(false)
 
   const refresh = useCallback(() => {
     setLoadErr(null)
-    Promise.all([getStudioSettings(), getHealth()])
-      .then(([st, h]) => {
+    Promise.all([
+      getStudioSettings(),
+      getHealth(),
+      listStudioUsers().catch(() => ({ users: [] as string[] })),
+    ])
+      .then(([st, h, su]) => {
         setSaved(cloneSettings(st))
         setDraft(cloneSettings(st))
         setHealth(h)
+        const ids =
+          su.users.length > 0
+            ? su.users
+            : h.allowedUsers?.length
+              ? h.allowedUsers
+              : [...FALLBACK_STUDIO_USER_IDS]
+        setStudioUserIds([...ids])
       })
       .catch((e: Error) => setLoadErr(e.message))
   }, [])
@@ -187,6 +217,79 @@ export function SettingsPage() {
     })()
   }
 
+  const addUserDraftRow = () => {
+    setUserManageErr(null)
+    setPendingNewUsers((p) => [...p, { id: crypto.randomUUID(), value: '' }])
+  }
+
+  const updateUserDraft = (draftId: string, value: string) => {
+    setPendingNewUsers((p) =>
+      p.map((row) => (row.id === draftId ? { ...row, value } : row)),
+    )
+  }
+
+  const removeUserDraft = (draftId: string) => {
+    setPendingNewUsers((p) => p.filter((row) => row.id !== draftId))
+  }
+
+  const commitUserDraft = (draftId: string) => {
+    void (async () => {
+      const row = pendingNewUsers.find((r) => r.id === draftId)
+      if (!row) return
+      const id = row.value.trim().toLowerCase()
+      if (!id) {
+        setUserManageErr('请填写用户 id')
+        return
+      }
+      if (!/^[a-z0-9_-]{1,32}$/i.test(id)) {
+        setUserManageErr(
+          '用户 id 须为 1–32 位字母、数字、下划线（_）或连字符（-）',
+        )
+        return
+      }
+      if (studioUserIds.some((u) => u.toLowerCase() === id)) {
+        setUserManageErr('该用户已存在')
+        return
+      }
+      setCommittingDraftId(draftId)
+      setUserManageErr(null)
+      try {
+        const { users } = await addStudioUser(id)
+        setStudioUserIds([...users])
+        setPendingNewUsers((p) => p.filter((r) => r.id !== draftId))
+        emitStudioUsersChanged([...users])
+      } catch (e) {
+        setUserManageErr((e as Error).message)
+      } finally {
+        setCommittingDraftId(null)
+      }
+    })()
+  }
+
+  const confirmRemoveUser = () => {
+    void (async () => {
+      if (!removeUserTarget) return
+      setRemoveUserLoading(true)
+      setUserManageErr(null)
+      try {
+        const { users } = await removeStudioUser(removeUserTarget)
+        setStudioUserIds([...users])
+        emitStudioUsersChanged([...users])
+        if (removeUserTarget === getStudioUser()) {
+          setStudioUser(users[0] || FALLBACK_STUDIO_USER_IDS[0])
+          setRemoveUserTarget(null)
+          window.location.reload()
+          return
+        }
+        setRemoveUserTarget(null)
+      } catch (e) {
+        setUserManageErr((e as Error).message)
+      } finally {
+        setRemoveUserLoading(false)
+      }
+    })()
+  }
+
   const addMapping = () => {
     setDraft((d) => {
       if (!d) return d
@@ -194,7 +297,7 @@ export function SettingsPage() {
         d.availableTags?.length && d.availableTags.length > 0
           ? d.availableTags
           : [...FALLBACK_STUDIO_TAGS]
-      const defaultTag = pool[0] ?? 'Tech'
+      const defaultTag = pool[0] ?? ''
       const dot: TagMapping['dot'] =
         d.tagMappings.length % 2 === 0 ? 'tertiary' : 'primary'
       const row: TagMapping = {
@@ -224,7 +327,7 @@ export function SettingsPage() {
       <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
         <div className="flex flex-1 items-center gap-8">
           <h2 className="text-3xl font-black tracking-tighter text-on-surface">
-            设置
+            系统设置
           </h2>
         </div>
         <div className="ml-8 flex items-center gap-4">
@@ -246,48 +349,163 @@ export function SettingsPage() {
         ) : null}
 
         <div className="mb-12">
-          <h3 className="mb-2 text-4xl font-extrabold tracking-tight text-on-surface">
-            系统设置
-          </h3>
-          <p className="max-w-2xl text-on-surface-variant">
-            配置本地下载目录与「标签 → 文件夹」映射；下载页会按频道标签解析保存位置。更改后需点击底部「保存更改」才会写入服务端。
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3 rounded-xl border border-outline-variant/15 bg-surface-container-low px-4 py-3">
-            <span className="text-xs font-bold text-on-surface-variant">
-              当前账号（数据按用户隔离）
-            </span>
-            <span className="font-mono text-sm text-primary">
-              {getStudioUser()}
-            </span>
-            <div className="flex gap-1">
-              {STUDIO_USER_OPTIONS.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => {
-                    if (id === getStudioUser()) return
-                    setStudioUser(id)
-                    window.location.reload()
-                  }}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors ${
-                    id === getStudioUser()
-                      ? 'bg-primary/20 text-primary'
-                      : 'text-on-surface-variant hover:bg-surface-container-high'
-                  }`}
-                >
-                  {id}
-                </button>
-              ))}
-            </div>
-          </div>
+          
+          
           {health && !health.ok ? (
-            <p className="mt-3 text-sm text-error">
+            <p className="mt-4 text-sm text-error">
               无法使用 yt-dlp：{health.error}
             </p>
           ) : null}
         </div>
 
         <section className="space-y-16">
+          <div>
+            <div className="mb-6 flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary">
+                manage_accounts
+              </span>
+              <h4 className="text-lg font-bold tracking-tight text-on-surface">
+                用户管理
+              </h4>
+            </div>
+
+            <div className="space-y-8 rounded-xl bg-surface-container-low p-6 md:p-8">
+              <div>
+                <label className="mb-3 block text-sm font-semibold text-on-surface-variant">
+                  账号列表
+                </label>
+                {userManageErr ? (
+                  <p className="mb-3 text-sm text-error">{userManageErr}</p>
+                ) : null}
+                <ul className="flex flex-col gap-1.5">
+                  {studioUserIds.map((id) => {
+                    const active = id === getStudioUser()
+                    return (
+                      <li
+                        key={id}
+                        className="flex min-h-[48px] items-stretch gap-1 overflow-hidden rounded-lg border border-outline-variant/15 bg-surface-container-lowest"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (active) return
+                            setStudioUser(id)
+                            window.location.reload()
+                          }}
+                          className={`min-w-0 flex flex-1 items-center justify-between gap-3 px-4 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/45 ${
+                            active
+                              ? 'bg-primary/12 ring-1 ring-inset ring-primary/35'
+                              : 'hover:bg-surface-container-high/60'
+                          }`}
+                          aria-current={active ? 'true' : undefined}
+                        >
+                          <span className="font-mono text-xs text-on-surface">
+                            {id}
+                          </span>
+                          {active ? (
+                            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-primary">
+                              当前
+                            </span>
+                          ) : (
+                            <span className="material-symbols-outlined shrink-0 text-lg text-on-surface-variant/50">
+                              chevron_right
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            studioUserIds.length <= 1 || removeUserLoading
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setUserManageErr(null)
+                            setRemoveUserTarget(id)
+                          }}
+                          className="shrink-0 border-l border-outline-variant/15 px-3 text-error transition-colors hover:bg-error/10 disabled:pointer-events-none disabled:opacity-35"
+                          title={
+                            studioUserIds.length <= 1
+                              ? '至少保留一个用户'
+                              : `删除用户 ${id}`
+                          }
+                          aria-label={`删除用户 ${id}`}
+                        >
+                          <span className="material-symbols-outlined text-lg leading-none">
+                            delete
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                  {pendingNewUsers.map((d, i) => {
+                    const busy = committingDraftId === d.id
+                    return (
+                      <li
+                        key={d.id}
+                        className="flex min-h-[48px] items-stretch gap-1 overflow-hidden rounded-lg border border-dashed border-primary/35 bg-surface-container-lowest/80"
+                      >
+                        <div className="flex min-w-0 flex-1 items-center px-3 py-2 sm:px-4">
+                          <input
+                            value={d.value}
+                            onChange={(e) =>
+                              updateUserDraft(d.id, e.target.value)
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') commitUserDraft(d.id)
+                            }}
+                            placeholder="新用户 id，例如 editor_01"
+                            disabled={busy}
+                            autoComplete="off"
+                            spellCheck={false}
+                            autoFocus={i === pendingNewUsers.length - 1}
+                            aria-label="新用户 id"
+                            className="w-full border-0 bg-transparent px-0 py-1 font-mono text-xs text-on-surface outline-none ring-0 placeholder:text-on-surface-variant/40 focus:ring-0 disabled:opacity-50"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          disabled={busy || removeUserLoading}
+                          onClick={() => commitUserDraft(d.id)}
+                          className="shrink-0 border-l border-outline-variant/15 px-3 text-primary transition-colors hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-35"
+                          title="创建用户"
+                          aria-label="创建用户"
+                        >
+                          <span className="material-symbols-outlined text-lg leading-none">
+                            {busy ? 'hourglass_empty' : 'check'}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setUserManageErr(null)
+                            removeUserDraft(d.id)
+                          }}
+                          className="shrink-0 border-l border-outline-variant/15 px-3 text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:pointer-events-none disabled:opacity-35"
+                          title="取消"
+                          aria-label="取消新建"
+                        >
+                          <span className="material-symbols-outlined text-lg leading-none">
+                            close
+                          </span>
+                        </button>
+                      </li>
+                    )
+                  })}
+                </ul>
+                <button
+                  type="button"
+                  onClick={addUserDraftRow}
+                  className="mt-2 flex items-center gap-2 rounded px-2 py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/5"
+                >
+                  <span className="material-symbols-outlined text-sm">add</span>
+                  新建用户
+                </button>
+               
+              </div>
+            </div>
+          </div>
+
           <div>
             <div className="mb-6 flex items-center gap-3">
               <span className="material-symbols-outlined text-primary">
@@ -447,6 +665,23 @@ export function SettingsPage() {
           {applyErr}
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={removeUserTarget !== null}
+        title="删除用户"
+        description={
+          removeUserTarget
+            ? `确定删除用户「${removeUserTarget}」？将永久删除其目录 data/users/${removeUserTarget}/ 以及该账号在服务端内存中的下载任务。此操作不可恢复。`
+            : ''
+        }
+        variant="danger"
+        confirmLabel="删除"
+        loading={removeUserLoading}
+        onConfirm={() => confirmRemoveUser()}
+        onCancel={() => {
+          if (!removeUserLoading) setRemoveUserTarget(null)
+        }}
+      />
     </div>
   )
 }

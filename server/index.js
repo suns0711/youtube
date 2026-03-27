@@ -46,16 +46,77 @@ const DEFAULT_DOWNLOAD_DIR = resolveDownloadDirFromStored('');
 const USERS_ROOT = path.join(ROOT, 'data', 'users');
 const LEGACY_SETTINGS_PATH = path.join(ROOT, 'data', 'studio-settings.json');
 const LEGACY_SUBSCRIPTIONS_PATH = path.join(ROOT, 'data', 'subscriptions.json');
+const STUDIO_USERS_JSON = path.join(ROOT, 'data', 'studio-users.json');
 
-const ALLOWED_USERS = new Set(
-  String(process.env.STUDIO_USERS || 'ss,yb')
-    .split(',')
-    .map((s) => s.trim().toLowerCase())
-    .filter((s) => /^[a-z0-9_-]{1,32}$/i.test(s)),
-);
-if (ALLOWED_USERS.size === 0) {
-  ALLOWED_USERS.add('ss');
-  ALLOWED_USERS.add('yb');
+const ALLOWED_USERS = new Set();
+
+function normalizeStudioUserIdEntry(raw) {
+  const s = String(raw ?? '').trim().toLowerCase();
+  return /^[a-z0-9_-]{1,32}$/i.test(s) ? s : null;
+}
+
+function normalizeStudioUserIdList(arr) {
+  const out = [];
+  const seen = new Set();
+  for (const item of arr) {
+    const s = normalizeStudioUserIdEntry(item);
+    if (!s || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
+
+function readStudioUsersFile() {
+  try {
+    const data = JSON.parse(fs.readFileSync(STUDIO_USERS_JSON, 'utf8'));
+    const arr = Array.isArray(data?.users)
+      ? data.users
+      : Array.isArray(data)
+        ? data
+        : [];
+    return normalizeStudioUserIdList(arr);
+  } catch {
+    return null;
+  }
+}
+
+function persistAllowedUsers() {
+  /** Set 迭代顺序即插入顺序：新建用户始终在末尾，写入 JSON 时保持该顺序 */
+  const users = [...ALLOWED_USERS];
+  fs.mkdirSync(path.dirname(STUDIO_USERS_JSON), { recursive: true });
+  fs.writeFileSync(
+    STUDIO_USERS_JSON,
+    JSON.stringify({ users }, null, 2),
+    'utf8',
+  );
+}
+
+function initAllowedUsers() {
+  let fromFile = false;
+  let list = null;
+  if (fs.existsSync(STUDIO_USERS_JSON)) {
+    const parsed = readStudioUsersFile();
+    if (parsed && parsed.length > 0) {
+      list = parsed;
+      fromFile = true;
+    }
+  }
+  if (!list) {
+    list = normalizeStudioUserIdList(
+      String(process.env.STUDIO_USERS || 'ss,yb').split(','),
+    );
+    if (!list.length) list = ['ss', 'yb'];
+  }
+  ALLOWED_USERS.clear();
+  for (const u of list) ALLOWED_USERS.add(u);
+  if (!fromFile) persistAllowedUsers();
+}
+
+initAllowedUsers();
+
+function sortedAllowedUsers() {
+  return [...ALLOWED_USERS];
 }
 
 const execFileAsync = promisify(execFile);
@@ -156,7 +217,7 @@ app.use((req, res, next) => {
     return res.status(401).json({
       error:
         '缺少或无效的用户。请在请求头加入 X-Studio-User（例如 ss 或 yb）',
-      allowedUsers: [...ALLOWED_USERS],
+      allowedUsers: sortedAllowedUsers(),
     });
   }
   req.studioUser = u;
@@ -360,7 +421,7 @@ function getDownloadDir(ctx) {
 }
 
 function migrateLegacyDataIfNeeded() {
-  const first = [...ALLOWED_USERS][0] || 'ss';
+  const first = sortedAllowedUsers()[0] || 'ss';
   fs.mkdirSync(USERS_ROOT, { recursive: true });
   if (
     fs.existsSync(LEGACY_SETTINGS_PATH)
@@ -1060,7 +1121,7 @@ app.post('/api/pick-folder-path', async (req, res) => {
 app.get('/api/health', async (_req, res) => {
   try {
     const { stdout } = await runYtDlp(['--version'], { timeoutMs: 8000 });
-    const sampleUser = [...ALLOWED_USERS][0] || 'ss';
+    const sampleUser = sortedAllowedUsers()[0] || 'ss';
     const sampleCtx = getContext(sampleUser);
     res.json({
       ok: true,
@@ -1068,13 +1129,14 @@ app.get('/api/health', async (_req, res) => {
       downloadDir: getDownloadDir(sampleCtx),
       binary: YT_DLP,
       usersRoot: USERS_ROOT,
-      allowedUsers: [...ALLOWED_USERS],
+      allowedUsers: sortedAllowedUsers(),
     });
   } catch (e) {
     res.status(503).json({
       ok: false,
       error: String(e.message || e),
       hint: '请安装 yt-dlp 并确保在 PATH 中，或设置环境变量 YT_DLP_PATH',
+      allowedUsers: sortedAllowedUsers(),
     });
   }
 });
@@ -1582,18 +1644,9 @@ app.get('/api/download/:jobId/file', (req, res) => {
   });
 });
 
-/** 与 client/src/lib/studioTags.ts 中 FALLBACK_STUDIO_TAGS 保持一致 */
-const SIDEBAR_PRESET_TAGS = [
-  'Tech',
-  'Music',
-  'Tutorials',
-  'Cinema',
-  'Gaming',
-];
-
 function collectAvailableTags(ctx) {
   const hidden = new Set(ctx.hiddenTags);
-  const set = new Set(SIDEBAR_PRESET_TAGS);
+  const set = new Set();
   ctx.tagMappings.forEach((m) => {
     const t = String(m.tag || '').trim();
     if (t) set.add(t);
@@ -1696,6 +1749,59 @@ function ensureAllUsersInitialized() {
 }
 
 ensureAllUsersInitialized();
+
+function purgeRecentFeedCacheForUser(userId) {
+  const prefix = `${userId}\t`;
+  for (const key of recentFeedCache.keys()) {
+    if (key.startsWith(prefix)) recentFeedCache.delete(key);
+  }
+}
+
+app.get('/api/studio-users', (_req, res) => {
+  res.json({ users: sortedAllowedUsers() });
+});
+
+app.post('/api/studio-users', (req, res) => {
+  const raw = normalizeStudioUserIdEntry(
+    req.body?.userId ?? req.body?.id ?? '',
+  );
+  if (!raw) {
+    return res.status(400).json({
+      error: '用户 id 须为 1–32 位字母、数字、下划线或连字符',
+    });
+  }
+  if (ALLOWED_USERS.has(raw)) {
+    return res.status(409).json({ error: '该用户已存在' });
+  }
+  ALLOWED_USERS.add(raw);
+  persistAllowedUsers();
+  fs.mkdirSync(userDir(raw), { recursive: true });
+  getContext(raw);
+  res.json({ users: sortedAllowedUsers() });
+});
+
+app.delete('/api/studio-users/:userId', (req, res) => {
+  const id = normalizeStudioUserIdEntry(req.params.userId || '');
+  if (!id || !ALLOWED_USERS.has(id)) {
+    return res.status(404).json({ error: '未找到该用户' });
+  }
+  if (ALLOWED_USERS.size <= 1) {
+    return res.status(400).json({ error: '至少保留一个用户' });
+  }
+  ALLOWED_USERS.delete(id);
+  persistAllowedUsers();
+  userContexts.delete(id);
+  for (const [jid, j] of jobs) {
+    if (j.studioUser === id) jobs.delete(jid);
+  }
+  purgeRecentFeedCacheForUser(id);
+  try {
+    fs.rmSync(userDir(id), { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+  res.json({ users: sortedAllowedUsers() });
+});
 
 app.get('/api/settings', (req, res) => {
   const ctx = getContext(req.studioUser);
@@ -2040,7 +2146,7 @@ app.delete('/api/subscriptions/:id', (req, res) => {
 
 const server = app.listen(PORT, () => {
   console.log(`API http://localhost:${PORT}`);
-  console.log(`用户数据: ${USERS_ROOT}  账号: ${[...ALLOWED_USERS].join(', ')}`);
+  console.log(`用户数据: ${USERS_ROOT}  账号: ${sortedAllowedUsers().join(', ')}`);
 });
 server.on('error', (err) => {
   if (err && err.code === 'EADDRINUSE') {

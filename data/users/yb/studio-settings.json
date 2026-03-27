@@ -1,21 +1,14 @@
 {
-  "downloadDir": "/Users/yibing/Downloads/YouTube",
+  "downloadDir": "/Users/lalala/Downloads/youtube",
   "tagMappings": [],
-  "hiddenTags": [
-    "Gaming"
-  ],
+  "hiddenTags": [],
   "tagAccentByLabel": {
-    "B-ROLL": "cyan",
-    "Cinema": "mint",
-    "INTERVIEW": "coral",
+    "B-ROLL": "violet",
+    "Cinema": "sky",
+    "Gaming": "mint",
+    "INTERVIEW": "violet",
     "Music": "amber",
     "Tech": "violet",
-    "Tutorials": "cyan",
-    "Naval": "mint",
-    "Ali Abdaal": "violet",
-    "David Perell": "cyan",
-    "Iman Gadzhi": "sky",
-    "Dan Koe": "sky",
-    "Tiago Forte": "sky"
+    "Tutorials": "mint"
   }
 }

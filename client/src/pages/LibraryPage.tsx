@@ -28,7 +28,6 @@ const VideoModal = lazy(async () => {
   return { default: m.VideoModal }
 })
 import { useAvailableTags } from '../AvailableTagsContext'
-import { DEMO_FEED_VIDEOS } from '../data/demoFeed'
 import { buildDownloadsHref } from '../lib/downloadsNavigation'
 import {
   resolveTagAccentId,
@@ -421,7 +420,7 @@ export function LibraryPage() {
               </div>
             ) : null}
             {!subVideosLoading && !subError && subSections.length === 0 ? (
-              <div className="mb-10 max-w-2xl space-y-4">
+              <div className="mb-10 max-w-2xl">
                 <p className="leading-relaxed text-on-surface-variant">
                   当前没有可展示的订阅视频。请先{' '}
                   <Link to="/subscriptions" className="text-primary hover:underline">
@@ -429,25 +428,6 @@ export function LibraryPage() {
                   </Link>
                   ；若已在频道页关闭通知，该频道将不会出现在此页。仅开启通知的频道会拉取并展示最近稿件。
                 </p>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-primary/90">
-                  界面示例
-                </p>
-                <p className="text-sm leading-relaxed text-on-surface-variant">
-                  以下为占位卡片，便于预览布局。
-                </p>
-                <div className="grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {DEMO_FEED_VIDEOS.map((v) => (
-                    <VideoCard
-                      key={v.sample ? `sample-${v.id}` : v.id}
-                      hideChannelMeta
-                      video={v}
-                      onPlay={setModal}
-                      onDownload={(vid) =>
-                        navigate(`/downloads?url=${encodeURIComponent(vid.url)}`)
-                      }
-                    />
-                  ))}
-                </div>
               </div>
             ) : null}
           </>

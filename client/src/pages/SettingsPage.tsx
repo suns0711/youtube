@@ -369,9 +369,9 @@ export function SettingsPage() {
               </h4>
             </div>
 
-            <div className="space-y-8 rounded-xl bg-surface-container-low p-6 md:p-8">
+            <div className="inner-highlight space-y-8 rounded-xl border border-white/14 bg-surface-container p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.45)] md:p-8">
               <div>
-                <label className="mb-3 block text-sm font-semibold text-on-surface-variant">
+                <label className="mb-3 block text-xs font-bold uppercase tracking-widest text-on-surface-variant/92">
                   账号列表
                 </label>
                 {userManageErr ? (
@@ -383,7 +383,7 @@ export function SettingsPage() {
                     return (
                       <li
                         key={id}
-                        className="flex min-h-[48px] items-stretch gap-1 overflow-hidden rounded-lg border border-outline-variant/15 bg-surface-container-lowest"
+                        className="flex min-h-[48px] items-stretch gap-1 overflow-hidden rounded-lg border border-white/12 bg-surface-container-high"
                       >
                         <button
                           type="button"
@@ -392,10 +392,10 @@ export function SettingsPage() {
                             setStudioUser(id)
                             window.location.reload()
                           }}
-                          className={`min-w-0 flex flex-1 items-center justify-between gap-3 px-4 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/45 ${
+                          className={`min-w-0 flex flex-1 items-center justify-between gap-3 px-4 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40 ${
                             active
-                              ? 'bg-primary/12 ring-1 ring-inset ring-primary/35'
-                              : 'hover:bg-surface-container-high/60'
+                              ? 'bg-primary/12 ring-1 ring-inset ring-white/25'
+                              : 'hover:bg-surface-container-highest/70'
                           }`}
                           aria-current={active ? 'true' : undefined}
                         >
@@ -422,7 +422,7 @@ export function SettingsPage() {
                             setUserManageErr(null)
                             setRemoveUserTarget(id)
                           }}
-                          className="shrink-0 border-l border-outline-variant/15 px-3 text-error transition-colors hover:bg-error/10 disabled:pointer-events-none disabled:opacity-35"
+                          className="shrink-0 border-l border-white/10 px-3 text-error transition-colors hover:bg-error/10 disabled:pointer-events-none disabled:opacity-35"
                           title={
                             studioUserIds.length <= 1
                               ? '至少保留一个用户'
@@ -442,7 +442,7 @@ export function SettingsPage() {
                     return (
                       <li
                         key={d.id}
-                        className="flex min-h-[48px] items-stretch gap-1 overflow-hidden rounded-lg border border-dashed border-primary/35 bg-surface-container-lowest/80"
+                        className="flex min-h-[48px] items-stretch gap-1 overflow-hidden rounded-lg border border-dashed border-white/22 bg-surface-container-high/75"
                       >
                         <div className="flex min-w-0 flex-1 items-center px-3 py-2 sm:px-4">
                           <input
@@ -466,7 +466,7 @@ export function SettingsPage() {
                           type="button"
                           disabled={busy || removeUserLoading}
                           onClick={() => commitUserDraft(d.id)}
-                          className="shrink-0 border-l border-outline-variant/15 px-3 text-primary transition-colors hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-35"
+                          className="shrink-0 border-l border-white/10 px-3 text-primary transition-colors hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-35"
                           title="创建用户"
                           aria-label="创建用户"
                         >
@@ -481,7 +481,7 @@ export function SettingsPage() {
                             setUserManageErr(null)
                             removeUserDraft(d.id)
                           }}
-                          className="shrink-0 border-l border-outline-variant/15 px-3 text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:pointer-events-none disabled:opacity-35"
+                          className="shrink-0 border-l border-white/10 px-3 text-on-surface-variant transition-colors hover:bg-surface-container-highest disabled:pointer-events-none disabled:opacity-35"
                           title="取消"
                           aria-label="取消新建"
                         >
@@ -516,9 +516,9 @@ export function SettingsPage() {
               </h4>
             </div>
 
-            <div className="space-y-8 rounded-xl bg-surface-container-low p-6 md:p-8">
+            <div className="inner-highlight space-y-8 rounded-xl border border-white/14 bg-surface-container p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.45)] md:p-8">
               <div>
-                <label className="mb-3 block text-sm font-semibold text-on-surface-variant">
+                <label className="mb-3 block text-xs font-bold uppercase tracking-widest text-on-surface-variant/92">
                   默认下载目录
                 </label>
                 {downloadDirPickErr ? (
@@ -528,25 +528,25 @@ export function SettingsPage() {
                   <input
                     readOnly
                     value={draft.downloadDir}
-                    className="min-h-[48px] flex-1 rounded-lg border border-outline-variant/15 bg-surface-container-lowest px-4 py-3 font-mono text-xs text-on-surface"
+                    className="min-h-[48px] flex-1 rounded-lg border border-white/12 bg-surface-container-high px-4 py-3 font-mono text-xs text-on-surface"
                   />
                   <button
                     type="button"
                     title="在运行后端的电脑上选择文件夹"
                     disabled={pickingMappingId !== null || pickingDownloadDir}
                     onClick={changePath}
-                    className="shrink-0 rounded-lg bg-surface-container-high px-6 py-3 text-sm font-bold text-primary transition-colors hover:bg-surface-bright disabled:pointer-events-none disabled:opacity-50"
+                    className="shrink-0 rounded-lg border border-white/12 bg-surface-container-high px-6 py-3 text-sm font-bold text-primary transition-colors hover:border-white/18 hover:bg-surface-container-highest disabled:pointer-events-none disabled:opacity-50"
                   >
                     {pickingDownloadDir ? '选择中…' : '修改路径'}
                   </button>
                 </div>
-                <p className="mt-2 text-[11px] uppercase tracking-wider text-on-surface-variant/60">
+                <p className="mt-2 text-[11px] uppercase tracking-wider text-on-surface-variant/82">
                   未命中标签映射时，下载任务默认保存到此目录。选择后需点击底部「保存更改」才会写入服务端。
                 </p>
               </div>
 
               <div>
-                <label className="mb-4 block text-sm font-semibold text-primary">
+                <label className="mb-4 block text-xs font-bold uppercase tracking-widest text-on-surface-variant/92">
                   标签与文件夹映射
                 </label>
                 {mappingPickErr ? (
@@ -558,7 +558,7 @@ export function SettingsPage() {
                       key={m.id}
                       className="grid grid-cols-1 items-center gap-3 sm:grid-cols-12"
                     >
-                      <div className="flex min-h-[46px] items-center gap-2 rounded-lg border border-outline-variant/15 bg-surface-container-lowest px-4 py-2 sm:col-span-3">
+                      <div className="flex min-h-[46px] items-center gap-2 rounded-lg border border-white/12 bg-surface-container-high px-4 py-2 sm:col-span-3">
                         <span
                           className={`h-2 w-2 shrink-0 rounded-full ${
                             m.dot === 'primary' ? 'bg-primary' : 'bg-tertiary'
@@ -577,7 +577,7 @@ export function SettingsPage() {
                           onChange={(e) =>
                             updateMapping(m.id, { path: e.target.value })
                           }
-                          className="min-w-0 flex-1 rounded-lg border border-outline-variant/15 bg-surface-container-lowest px-4 py-2.5 font-mono text-xs text-on-surface-variant"
+                          className="min-w-0 flex-1 rounded-lg border border-white/12 bg-surface-container-high px-4 py-2.5 font-mono text-xs text-on-surface-variant focus:outline-none focus:ring-2 focus:ring-white/35"
                         />
                         <button
                           type="button"
@@ -586,7 +586,7 @@ export function SettingsPage() {
                             pickingMappingId !== null || pickingDownloadDir
                           }
                           onClick={() => pickPathForMapping(m.id)}
-                          className="flex shrink-0 items-center justify-center self-stretch rounded-lg bg-surface-container-high px-3 text-primary transition-colors hover:bg-surface-container-highest disabled:pointer-events-none disabled:opacity-50"
+                          className="flex shrink-0 items-center justify-center self-stretch rounded-lg border border-white/12 bg-surface-container-high px-3 text-primary transition-colors hover:border-white/18 hover:bg-surface-container-highest disabled:pointer-events-none disabled:opacity-50"
                           aria-label="选择文件夹路径"
                         >
                           <span className="material-symbols-outlined text-xl">
@@ -620,7 +620,7 @@ export function SettingsPage() {
               </div>
 
               {health?.ok ? (
-                <p className="border-t border-outline-variant/10 pt-6 font-mono text-[11px] text-on-surface-variant/70">
+                <p className="border-t border-white/10 pt-6 font-mono text-[11px] text-on-surface-variant/82">
                   引擎：yt-dlp {health.ytDlp} · 可执行文件 {health.binary}
                 </p>
               ) : null}
@@ -652,7 +652,7 @@ export function SettingsPage() {
               type="button"
               disabled={applying}
               onClick={() => void apply()}
-              className="rounded-lg bg-gradient-to-r from-primary-container to-[#FF5540] px-6 py-2.5 text-sm font-bold text-on-primary-container shadow-[0_0_30px_rgba(255,85,64,0.3)] transition-all active:scale-95 disabled:opacity-50 sm:px-8"
+              className="rounded-lg bg-primary-container px-6 py-2.5 text-sm font-bold text-on-primary-container shadow-[0_0_24px_rgba(255,255,255,0.14)] transition-all active:scale-95 disabled:opacity-50 sm:px-8"
             >
               {applying ? '保存中…' : '保存更改'}
             </button>

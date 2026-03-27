@@ -38,7 +38,7 @@ export function ConfirmDialog({
   const confirmClass =
     variant === 'danger'
       ? 'border border-error/40 bg-error/10 text-error hover:bg-error/20'
-      : 'red-glow-btn text-on-primary-container shadow-[0_0_24px_rgba(255,85,64,0.25)]'
+      : 'red-glow-btn text-on-primary-container shadow-[0_0_20px_rgba(255,255,255,0.14)]'
 
   return (
     <div

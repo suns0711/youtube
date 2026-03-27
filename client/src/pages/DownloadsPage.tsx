@@ -55,7 +55,7 @@ function LabelWithHint({
 }) {
   const labelCls =
     labelClassName ??
-    'text-xs font-bold uppercase tracking-widest text-on-surface-variant/60'
+    'text-xs font-bold uppercase tracking-widest text-on-surface-variant/92'
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {htmlFor ? (
@@ -528,7 +528,7 @@ export function DownloadsPage() {
         </section>
 
         <div className="space-y-8">
-          <div className="inner-highlight space-y-8 rounded-xl bg-surface-container-low p-6 md:p-8">
+          <div className="inner-highlight space-y-8 rounded-xl border border-white/14 bg-surface-container p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.45)] md:p-8">
             <h3 className="flex items-center gap-2 text-lg font-bold text-primary">
               <span className="material-symbols-outlined">tune</span>
               下载选项
@@ -556,13 +556,13 @@ export function DownloadsPage() {
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="每行一个链接（多行将排队依次下载）"
                 rows={5}
-                className="custom-scrollbar w-full min-h-[140px] resize-y rounded-lg border-0 bg-surface-container-lowest px-4 py-4 font-mono text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-2 focus:ring-primary/40 break-all"
+                className="custom-scrollbar w-full min-h-[140px] resize-y rounded-lg border border-white/12 bg-surface-container-high px-4 py-4 font-mono text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-2 focus:ring-white/35 break-all"
               />
             </div>
             <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">
+                  <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/92">
                     画质
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -571,10 +571,10 @@ export function DownloadsPage() {
                         key={q.id}
                         type="button"
                         onClick={() => setQuality(q.id)}
-                        className={`rounded-lg px-3 py-3 text-xs font-bold transition-all ${
+                        className={`rounded-lg border px-3 py-3 text-xs font-bold transition-all ${
                           quality === q.id
-                            ? 'border border-primary/20 bg-surface-container-high text-primary'
-                            : 'bg-surface-container-lowest text-on-surface-variant/40 hover:bg-surface-container-high'
+                            ? 'border-white/25 bg-primary-container text-on-primary-container shadow-[0_0_0_1px_rgba(255,255,255,0.12)]'
+                            : 'border-white/10 bg-surface-container-highest text-on-surface-variant/55 hover:border-white/16 hover:bg-surface-container-high hover:text-on-surface-variant'
                         }`}
                       >
                         {q.label}
@@ -608,7 +608,7 @@ export function DownloadsPage() {
                         setIntervalMinSec(clampIntervalSec(Number(e.target.value)))
                       }
                       aria-label="随机间隔下限（秒）"
-                      className="min-w-0 flex-1 rounded-lg border-0 bg-surface-container-lowest px-3 py-2.5 font-mono text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="min-w-0 flex-1 rounded-lg border border-white/12 bg-surface-container-high px-3 py-2.5 font-mono text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-white/35"
                     />
                     <span
                       className="shrink-0 select-none pb-0.5 text-xl leading-none text-on-surface-variant/45"
@@ -627,7 +627,7 @@ export function DownloadsPage() {
                         setIntervalMaxSec(clampIntervalSec(Number(e.target.value)))
                       }
                       aria-label="随机间隔上限（秒）"
-                      className="min-w-0 flex-1 rounded-lg border-0 bg-surface-container-lowest px-3 py-2.5 font-mono text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="min-w-0 flex-1 rounded-lg border border-white/12 bg-surface-container-high px-3 py-2.5 font-mono text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-white/35"
                     />
                   </div>
                 </div>
@@ -677,7 +677,7 @@ export function DownloadsPage() {
                 保存路径
               </LabelWithHint>
               <div className="flex w-full gap-2">
-                <div className="min-h-[44px] flex-1 whitespace-pre-wrap break-all rounded-lg bg-surface-container-lowest px-4 py-3 font-mono text-xs leading-relaxed text-on-surface-variant">
+                <div className="min-h-[44px] flex-1 whitespace-pre-wrap break-all rounded-lg border border-white/12 bg-surface-container-high px-4 py-3 font-mono text-xs leading-relaxed text-on-surface-variant">
                   {downloadPath || '加载中…'}
                 </div>
                 <button
@@ -697,7 +697,7 @@ export function DownloadsPage() {
                       }
                     })()
                   }}
-                  className="flex shrink-0 items-center justify-center self-stretch rounded-lg bg-surface-container-high px-4 text-primary transition-colors hover:bg-surface-container-highest"
+                  className="flex shrink-0 items-center justify-center self-stretch rounded-lg border border-white/12 bg-surface-container-high px-4 text-primary transition-colors hover:border-white/18 hover:bg-surface-container-highest"
                 >
                   <span className="material-symbols-outlined text-xl">
                     folder_open
@@ -728,7 +728,7 @@ export function DownloadsPage() {
               className={`flex w-full items-center justify-center gap-3 rounded-lg py-4 font-black transition-colors md:w-auto md:px-12 ${
                 startDownloadLocked
                   ? 'cursor-not-allowed bg-surface-container-highest text-on-surface-variant/50 shadow-none'
-                  : 'bg-gradient-to-r from-primary-container to-[#FF5540] text-on-primary-container shadow-[0_4px_20px_rgba(255,85,64,0.3)] active:scale-[0.98]'
+                  : 'bg-primary-container text-on-primary-container shadow-[0_0_20px_rgba(255,255,255,0.14)] active:scale-[0.98]'
               }`}
             >
               <span
@@ -850,7 +850,7 @@ export function DownloadsPage() {
                       )}
                       {isWorking ? (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="rounded bg-black/60 px-2 py-0.5 font-mono text-[10px] text-primary">
+                          <span className="rounded bg-black/60 px-2 py-0.5 font-mono text-[10px] text-white">
                             {pct}%
                           </span>
                         </div>
@@ -878,7 +878,7 @@ export function DownloadsPage() {
                       <div className="space-y-1">
                         <div className="h-1 w-full overflow-hidden rounded-full bg-surface-container-highest">
                           <div
-                            className="h-full bg-primary shadow-[0_0_10px_rgba(255,180,168,0.5)] transition-[width] duration-300"
+                            className="h-full bg-primary shadow-[0_0_10px_rgba(255,255,255,0.35)] transition-[width] duration-300"
                             style={{ width: `${pct}%` }}
                           />
                         </div>

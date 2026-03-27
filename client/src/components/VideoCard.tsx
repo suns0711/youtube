@@ -16,7 +16,7 @@ type Props = {
 function channelAvatarUrl(v: VideoItem): string {
   if (v.channel_thumbnail) return v.channel_thumbnail
   const name = encodeURIComponent(v.channel || '频道')
-  return `https://ui-avatars.com/api/?name=${name}&size=128&background=353534&color=ebbbb4&bold=true`
+  return `https://ui-avatars.com/api/?name=${name}&size=128&background=2a2a2a&color=ffffff&bold=true`
 }
 
 export function VideoCard({

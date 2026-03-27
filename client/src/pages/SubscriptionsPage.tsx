@@ -417,7 +417,7 @@ export function SubscriptionsPage() {
                 menuId === c.id ? 'relative z-[20]' : ''
               } ${
                 focusChannelId === c.id
-                  ? 'ring-2 ring-primary/55 shadow-[0_0_0_1px_rgba(255,180,168,0.25)]'
+                  ? 'ring-2 ring-primary/55 shadow-[0_0_0_1px_rgba(255,255,255,0.12)]'
                   : ''
               }`}
             >
@@ -542,7 +542,7 @@ export function SubscriptionsPage() {
                   className={`relative h-7 w-12 shrink-0 rounded-full border-2 p-0.5 transition-[box-shadow,background-color,border-color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 ${
                     c.notificationsMuted
                       ? 'border-outline-variant/40 bg-surface-container-highest shadow-none'
-                      : 'border-primary bg-primary/50 shadow-[0_0_20px_rgba(255,72,55,0.55),inset_0_1px_0_rgba(255,255,255,0.12)]'
+                      : 'border-primary bg-white/20 shadow-[0_0_16px_rgba(255,255,255,0.12),inset_0_1px_0_rgba(255,255,255,0.14)]'
                   }`}
                 >
                   <span

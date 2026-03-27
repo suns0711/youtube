@@ -19,7 +19,7 @@ const navClassCollapsed = `${navClassBase} justify-center gap-0 px-2 py-3`
 const inactive =
   'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'
 const active =
-  'scale-[1.02] bg-primary/18 font-semibold text-primary shadow-[0_0_28px_rgba(255,85,64,0.28)] ring-1 ring-inset ring-primary/50'
+  'scale-[1.02] bg-surface-container-high font-semibold text-primary shadow-[0_0_20px_rgba(255,255,255,0.08)] ring-1 ring-inset ring-white/25'
 
 function readSidebarCollapsed(): boolean {
   try {

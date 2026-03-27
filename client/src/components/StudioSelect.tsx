@@ -52,7 +52,7 @@ export function StudioSelect({
         aria-controls={listId}
         aria-haspopup="listbox"
         onClick={() => !disabled && setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-2 rounded-md py-1.5 pl-0 pr-1 text-left text-xs font-medium text-on-surface transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-lowest disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full items-center justify-between gap-2 rounded-md py-1.5 pl-0 pr-1 text-left text-xs font-medium text-on-surface transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-container-high disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span className="min-w-0 truncate">{value}</span>
         <span
@@ -67,7 +67,7 @@ export function StudioSelect({
         <ul
           id={listId}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-y-auto rounded-lg border border-outline-variant/20 bg-surface-container-low py-1 shadow-2xl custom-scrollbar"
+          className="absolute left-0 right-0 top-full z-[60] mt-1 max-h-48 overflow-y-auto rounded-lg border border-white/14 bg-surface-container py-1 shadow-2xl custom-scrollbar"
         >
           {options.map((opt) => {
             const selected = opt === value

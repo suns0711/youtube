@@ -30,33 +30,34 @@ export function resolveTagAccentId(
 
 /**
  * 标签色：频道卡片 / 侧栏筛选 / 首页 feed / 标签管理页共用（open 仅标签页展开态描边）。
+ * 使用高饱和色底，与黑底页面对比清晰。
  */
 export function tagAccentPillClass(id: TagAccentId, open: boolean): string {
   const base = 'transition-colors'
   const ring: Record<TagAccentId, string> = {
-    coral: 'ring-primary/40',
-    sky: 'ring-tertiary/45',
-    violet: 'ring-purple-400/45',
-    mint: 'ring-teal-400/45',
-    amber: 'ring-amber-400/45',
-    rose: 'ring-rose-400/45',
-    cyan: 'ring-cyan-400/45',
+    coral: 'ring-orange-400/90',
+    sky: 'ring-sky-400/90',
+    violet: 'ring-violet-400/90',
+    mint: 'ring-emerald-400/90',
+    amber: 'ring-amber-400/90',
+    rose: 'ring-pink-400/90',
+    cyan: 'ring-cyan-400/90',
   }
   const openCls = open ? `ring-2 ${ring[id]}` : ''
   const by: Record<TagAccentId, string> = {
-    coral: `${base} border-primary/35 bg-primary/10 text-primary hover:border-primary/55 ${openCls}`,
-    sky: `${base} border-tertiary/40 bg-tertiary/10 text-tertiary hover:border-tertiary/60 ${openCls}`,
-    violet: `${base} border-purple-400/35 bg-purple-500/10 text-purple-200 hover:border-purple-400/55 ${openCls}`,
-    mint: `${base} border-teal-400/35 bg-teal-500/10 text-teal-200 hover:border-teal-400/55 ${openCls}`,
-    amber: `${base} border-amber-400/40 bg-amber-500/10 text-amber-100 hover:border-amber-400/60 ${openCls}`,
-    rose: `${base} border-rose-400/35 bg-rose-500/10 text-rose-200 hover:border-rose-400/55 ${openCls}`,
-    cyan: `${base} border-cyan-400/35 bg-cyan-500/10 text-cyan-200 hover:border-cyan-400/55 ${openCls}`,
+    coral: `${base} border-orange-500/85 bg-orange-500/45 text-orange-50 hover:border-orange-400 hover:bg-orange-500/55 ${openCls}`,
+    sky: `${base} border-sky-500/85 bg-sky-600/45 text-sky-50 hover:border-sky-400 hover:bg-sky-600/55 ${openCls}`,
+    violet: `${base} border-violet-500/85 bg-violet-600/45 text-violet-50 hover:border-violet-400 hover:bg-violet-600/55 ${openCls}`,
+    mint: `${base} border-emerald-500/85 bg-emerald-600/45 text-emerald-50 hover:border-emerald-400 hover:bg-emerald-600/55 ${openCls}`,
+    amber: `${base} border-amber-500/85 bg-amber-500/50 text-amber-950 hover:border-amber-400 hover:bg-amber-500/65 ${openCls}`,
+    rose: `${base} border-pink-500/85 bg-pink-600/45 text-pink-50 hover:border-pink-400 hover:bg-pink-600/55 ${openCls}`,
+    cyan: `${base} border-cyan-500/85 bg-cyan-600/45 text-cyan-50 hover:border-cyan-400 hover:bg-cyan-600/55 ${openCls}`,
   }
   return by[id]
 }
 
 /**
- * 当前 URL `feedTag` 与标签一致时叠用：加粗描边 + 光晕，与侧栏/首页标签筛选联动。
+ * _feedTag_ 选中叠用：高亮描边；白环在艳色标签上也清晰。
  */
 export const tagFeedFilterSelectedOverlayClass =
-  'z-[1] font-semibold ring-2 ring-primary shadow-[0_0_18px_rgba(255,85,64,0.55)]'
+  'z-[1] font-semibold ring-2 ring-white shadow-[0_0_16px_rgba(255,255,255,0.35)]'

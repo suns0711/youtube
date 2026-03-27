@@ -8,7 +8,7 @@ import {
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAvailableTags } from '../AvailableTagsContext'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { HeaderStudioUser } from '../components/HeaderStudioUser'
+import { PageHeaderToolbar } from '../components/PageHeaderToolbar'
 import {
   createSubscription,
   deleteSubscription,
@@ -311,15 +311,7 @@ export function SubscriptionsPage() {
             频道
           </h2>
         </div>
-        <div className="ml-8 flex items-center gap-4">
-          <Link
-            to="/downloads"
-            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-high"
-          >
-            <span className="material-symbols-outlined">download</span>
-          </Link>
-          <HeaderStudioUser size="md" className="ml-2" />
-        </div>
+        <PageHeaderToolbar userSwitcherSize="md" />
       </header>
 
       <section className="mt-8 px-6 pb-20 md:px-10">

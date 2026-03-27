@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAvailableTags } from '../AvailableTagsContext'
 import {
   addStudioUser,
@@ -18,7 +17,7 @@ import {
   type TagMapping,
 } from '../api'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { HeaderStudioUser } from '../components/HeaderStudioUser'
+import { PageHeaderToolbar } from '../components/PageHeaderToolbar'
 import { StudioSelect } from '../components/StudioSelect'
 import { FALLBACK_STUDIO_TAGS } from '../lib/studioTags'
 
@@ -330,15 +329,7 @@ export function SettingsPage() {
             系统设置
           </h2>
         </div>
-        <div className="ml-8 flex items-center gap-4">
-          <Link
-            to="/downloads"
-            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low"
-          >
-            <span className="material-symbols-outlined">download</span>
-          </Link>
-          <HeaderStudioUser size="sm" />
-        </div>
+        <PageHeaderToolbar userSwitcherSize="sm" />
       </header>
 
       <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-12 pb-40 md:px-10">

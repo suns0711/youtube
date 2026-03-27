@@ -25,7 +25,21 @@ npm run dev
 npm run build
 ```
 
-产物在 `client/dist/`。生产环境可让任意静态服务器托管该目录，并将 `/api` 反向代理到 Node 服务；或自行在 `server` 中挂载静态目录（当前仓库未内置，避免与未知 API 路径冲突）。
+产物在 `client/dist/`。若该目录存在 `index.html`，在**同端口**启动的 `server` 会自动托管静态资源（适用于 Electron 包与自部署同源场景）。其他部署方式仍可把 `dist` 交给 Nginx 等，并将 `/api` 反向代理到 Node。
+
+## macOS 安装包（.dmg）
+
+1. 根目录执行 `npm install`（会安装 `electron`、`electron-builder` 等开发依赖）
+2. 打包：`npm run dist:mac`（会先 `npm run build` 前端，再整理 `electron-dist/studio`）
+3. 安装包在 **`release/`** 目录（如 `YouTube Studio-*-arm64.dmg`，具体名称以 electron-builder 输出为准）
+4. **yt-dlp 不会被打进应用**：运行本应用前仍须在系统里安装 `yt-dlp`（例如 `brew install yt-dlp`），服务端进程会从 `PATH` 调用
+5. 未签名的应用首次打开：可在 **系统设置 → 隐私与安全性** 中放行，或对 `.app` **右键 → 打开**
+
+用 Electron 窗口联调前端（需已 `npm run dev` 跑起 Vite + API）：
+
+```bash
+npm run electron:dev
+```
 
 ## 环境变量（服务端）
 
@@ -34,6 +48,8 @@ npm run build
 | `YT_DLP_PATH` | `yt-dlp` 可执行文件路径；未设置时从 `PATH` 查找 |
 | `DOWNLOAD_DIR` | 下载保存目录；默认 `<项目根>/data/downloads` |
 | `PORT` | API 端口；默认 `8787` |
+| `STUDIO_ROOT` | 项目根目录（数据 `data/`、配置等相对此路径；Electron 包内会设置） |
+| `STUDIO_CLIENT_DIST` | 前端静态目录，默认 `<STUDIO_ROOT 或项目根>/client/dist` |
 
 ## 功能说明
 

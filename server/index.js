@@ -9,7 +9,9 @@ import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.join(__dirname, '..');
+const ROOT = process.env.STUDIO_ROOT
+  ? path.resolve(process.env.STUDIO_ROOT)
+  : path.join(__dirname, '..');
 /** 设置文件中默认使用的相对路径（相对项目根目录 ROOT） */
 const RELATIVE_DEFAULT_DOWNLOAD_DIR = 'data/downloads';
 
@@ -168,6 +170,11 @@ app.use(
 );
 app.use(express.json({ limit: '1mb' }));
 
+/** 免鉴权：供前端启动时校正 localStorage 中的 X-Studio-User，仅返回账号 id 列表 */
+app.get('/api/auth/bootstrap', (_req, res) => {
+  res.json({ allowedUsers: sortedAllowedUsers() });
+});
+
 function userDir(userId) {
   return path.join(USERS_ROOT, userId);
 }
@@ -212,6 +219,13 @@ function parseStudioUser(req) {
 app.use((req, res, next) => {
   if (req.method === 'OPTIONS') return next();
   if (req.path === '/api/health') return next();
+  /* 静态页与前端资源由浏览器直接请求，无需 X-Studio-User；API 仍校验 */
+  if (
+    (req.method === 'GET' || req.method === 'HEAD')
+    && !req.path.startsWith('/api')
+  ) {
+    return next();
+  }
   const u = parseStudioUser(req);
   if (!u) {
     return res.status(401).json({
@@ -522,9 +536,20 @@ function finalizeStagedYoutubeDownload(stagingDir, outputDir) {
   if (!scored.length) return null;
   scored.sort((a, b) => b.size - a.size);
   const chosen = scored[0];
+  const mainOriginalName = chosen.f;
   let destPath = path.join(outputDir, chosen.f);
   destPath = uniqueFilePathInDir(destPath);
   fs.renameSync(chosen.p, destPath);
+  for (const item of scored) {
+    if (item.f === mainOriginalName) continue;
+    try {
+      let side = path.join(outputDir, item.f);
+      side = uniqueFilePathInDir(side);
+      fs.renameSync(item.p, side);
+    } catch {
+      /* 封面等附属文件移动失败不影响主视频 */
+    }
+  }
   try {
     fs.rmSync(stagingDir, { recursive: true, force: true });
   } catch {
@@ -1456,6 +1481,15 @@ app.post('/api/download', (req, res) => {
     outputDir = dirResult.path;
   }
   const fmt = formatForQuality(quality === 'best' ? 'best' : quality);
+  const writeThumbnail = Boolean(req.body?.writeThumbnail);
+  let thumbnailFormat = null;
+  if (writeThumbnail) {
+    const tf = String(req.body?.thumbnailFormat || 'jpg').toLowerCase();
+    if (tf !== 'webp' && tf !== 'jpg') {
+      return res.status(400).json({ error: 'thumbnailFormat 须为 webp 或 jpg' });
+    }
+    thumbnailFormat = tf;
+  }
   const jobId = randomUUID();
   /** 先写入系统临时目录，完成后以视频标题迁入目标目录，避免并行任务与 junk 文件夹 */
   const stagingDir = path.join(tmpdir(), `youtube-studio-dl-${jobId}`);
@@ -1467,6 +1501,8 @@ app.post('/api/download', (req, res) => {
     studioUser: req.studioUser,
     url,
     quality,
+    writeThumbnail,
+    thumbnailFormat,
     outputDir,
     stagingDir,
     status: 'downloading',
@@ -1530,6 +1566,9 @@ app.post('/api/download', (req, res) => {
     '--no-playlist',
     '--newline',
   ];
+  if (writeThumbnail) {
+    ytdlpArgs.push('--write-thumbnail', '--convert-thumbnails', thumbnailFormat);
+  }
   if (process.platform === 'win32') {
     ytdlpArgs.push('--windows-filenames');
   }
@@ -2143,6 +2182,22 @@ app.delete('/api/subscriptions/:id', (req, res) => {
   if (syncAccentsForVisibleTags(ctx)) saveStudioSettingsToDisk(ctx);
   res.json({ ok: true });
 });
+
+/** 桌面包 / 生产：同端口托管 Vite 构建产物 */
+const CLIENT_DIST = process.env.STUDIO_CLIENT_DIST
+  ? path.resolve(process.env.STUDIO_CLIENT_DIST)
+  : path.join(ROOT, 'client', 'dist');
+const clientIndexHtml = path.join(CLIENT_DIST, 'index.html');
+if (fs.existsSync(clientIndexHtml)) {
+  console.log(`[server] 托管静态资源: ${CLIENT_DIST}`);
+  app.use(express.static(CLIENT_DIST));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
+    res.sendFile(clientIndexHtml, (err) => {
+      if (err) next(err);
+    });
+  });
+}
 
 const server = app.listen(PORT, () => {
   console.log(`API http://localhost:${PORT}`);

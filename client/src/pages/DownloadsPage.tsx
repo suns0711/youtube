@@ -17,11 +17,12 @@ import {
   startDownload,
   suggestDownloadOutput,
   type DownloadJob,
+  type ThumbnailImageFormat,
 } from '../api'
 import { useAvailableTags } from '../AvailableTagsContext'
 import { resolveTagMappedDownloadPath } from '../lib/resolveTagDownloadPath'
 import { isAllowedYoutubeUrl, youtubeIdFromUrl } from '../util'
-import { HeaderStudioUser } from '../components/HeaderStudioUser'
+import { PageHeaderToolbar } from '../components/PageHeaderToolbar'
 
 const QUALITIES: { id: string; label: string }[] = [
   { id: '2160', label: '4K（2160p）' },
@@ -224,6 +225,11 @@ export function DownloadsPage() {
   }, [channelTagsRaw])
   const [url, setUrl] = useState(urlFromQuery)
   const [quality, setQuality] = useState('1080')
+  /** 是否用 yt-dlp 额外写入视频缩略图文件 */
+  const [writeThumbnail, setWriteThumbnail] = useState(false)
+  /** 封面图输出格式（依赖 writeThumbnail） */
+  const [thumbnailFormat, setThumbnailFormat] =
+    useState<ThumbnailImageFormat>('jpg')
   /** 多行时：上一任务完成（或失败）后，再经 [min,max] 秒内随机等待后发起下一任务 */
   const [intervalMinSec, setIntervalMinSec] = useState(5)
   const [intervalMaxSec, setIntervalMaxSec] = useState(20)
@@ -456,6 +462,8 @@ export function DownloadsPage() {
         }
         const { jobId } = await startDownload(lines[i], quality, {
           outputDir: downloadPath.trim() || undefined,
+          writeThumbnail,
+          thumbnailFormat: writeThumbnail ? thumbnailFormat : undefined,
         })
         prevJobId = jobId
         setPollIds((s) => new Set(s).add(jobId))
@@ -505,21 +513,7 @@ export function DownloadsPage() {
             下载
           </h2>
         </div>
-        <div className="ml-8 flex items-center gap-4">
-          <button
-            type="button"
-            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low active:scale-95"
-          >
-            <span className="material-symbols-outlined">download</span>
-          </button>
-          <Link
-            to="/settings"
-            className="rounded-full p-2 text-on-surface-variant transition-colors hover:bg-surface-container-low active:scale-95"
-          >
-            <span className="material-symbols-outlined">settings</span>
-          </Link>
-          <HeaderStudioUser size="sm" className="ml-2" />
-        </div>
+        <PageHeaderToolbar userSwitcherSize="sm" />
       </header>
 
       <div className="mx-auto w-full max-w-5xl space-y-12 px-6 pb-32 pt-2 md:px-10">
@@ -631,6 +625,76 @@ export function DownloadsPage() {
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t border-white/10 pt-6">
+              <LabelWithHint
+                hintSummary="封面图：与视频同目录的缩略图文件"
+                hint={
+                  <p>
+                    勾选后会在保存目录额外生成封面图，文件名与视频标题一致。使用 yt-dlp{' '}
+                    <code className="font-mono text-primary">--write-thumbnail</code> 与{' '}
+                    <code className="font-mono text-primary">
+                      --convert-thumbnails
+                    </code>{' '}
+                    转换为你选的 .webp 或 .jpg；不勾选则仅下载视频。
+                  </p>
+                }
+              >
+                封面图
+              </LabelWithHint>
+              <div className="space-y-3 rounded-lg border border-white/12 bg-surface-container-high/60 px-4 py-3 transition-colors">
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    id="dl-write-thumbnail"
+                    type="checkbox"
+                    checked={writeThumbnail}
+                    onChange={(e) => setWriteThumbnail(e.target.checked)}
+                    disabled={busy || hasActiveQueueDownload}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-white/30 bg-surface-container-high accent-primary disabled:opacity-45"
+                  />
+                  <span className="text-sm leading-snug text-on-surface-variant/92">
+                    同时下载视频封面图（缩略图文件）
+                  </span>
+                </label>
+                {writeThumbnail ? (
+                  <div
+                    className="ml-7 space-y-2 border-l border-white/15 pl-4"
+                    role="group"
+                    aria-label="封面图格式"
+                  >
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant/75">
+                      图片格式
+                    </span>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-on-surface">
+                        <input
+                          type="radio"
+                          name="dl-thumbnail-format"
+                          value="webp"
+                          checked={thumbnailFormat === 'webp'}
+                          onChange={() => setThumbnailFormat('webp')}
+                          disabled={busy || hasActiveQueueDownload}
+                          className="h-4 w-4 border-white/30 bg-surface-container-high text-primary accent-white disabled:opacity-45"
+                        />
+                        <span>.webp</span>
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-on-surface">
+                        <input
+                          type="radio"
+                          name="dl-thumbnail-format"
+                          value="jpg"
+                          checked={thumbnailFormat === 'jpg'}
+                          onChange={() => setThumbnailFormat('jpg')}
+                          disabled={busy || hasActiveQueueDownload}
+                          className="h-4 w-4 border-white/30 bg-surface-container-high text-primary accent-white disabled:opacity-45"
+                        />
+                        <span>.jpg</span>
+                      </label>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -873,12 +937,27 @@ export function DownloadsPage() {
                           <span className="rounded bg-tertiary-container/10 px-2 py-0.5 font-mono text-[10px] text-tertiary-container">
                             {qualityLabel(job.quality)}
                           </span>
+                          {job.writeThumbnail ? (
+                            <span
+                              className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-200"
+                              title="任务包含封面图下载"
+                            >
+                              封面
+                              {job.thumbnailFormat
+                                ? ` .${job.thumbnailFormat}`
+                                : ''}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
                       <div className="space-y-1">
                         <div className="h-1 w-full overflow-hidden rounded-full bg-surface-container-highest">
                           <div
-                            className="h-full bg-primary shadow-[0_0_10px_rgba(255,255,255,0.35)] transition-[width] duration-300"
+                            className={`h-full transition-[width] duration-300 ${
+                              isDone
+                                ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.45)]'
+                                : 'bg-primary shadow-[0_0_10px_rgba(255,255,255,0.35)]'
+                            }`}
                             style={{ width: `${pct}%` }}
                           />
                         </div>

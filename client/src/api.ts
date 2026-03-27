@@ -23,6 +23,31 @@ export function setStudioUser(userId: string): void {
   localStorage.setItem(STUDIO_USER_STORAGE_KEY, userId.trim().toLowerCase())
 }
 
+/**
+ * 启动时调用：若当前 localStorage 用户不在服务端允许列表中，改为列表首项。
+ * 不经过需鉴权接口，避免「无效用户 → 401 → 无法恢复」死循环。
+ */
+export async function syncStudioUserWithServer(): Promise<void> {
+  const res = await fetch(`${base}/api/auth/bootstrap`)
+  if (!res.ok) return
+  let data: { allowedUsers?: unknown }
+  try {
+    data = (await res.json()) as { allowedUsers?: unknown }
+  } catch {
+    return
+  }
+  const raw = data.allowedUsers
+  if (!Array.isArray(raw) || raw.length === 0) return
+  const allowed = raw
+    .map((u) => String(u ?? '').trim().toLowerCase())
+    .filter((u) => /^[a-z0-9_-]{1,32}$/i.test(u))
+  if (!allowed.length) return
+  const cur = getStudioUser().toLowerCase()
+  if (!allowed.includes(cur)) {
+    setStudioUser(allowed[0])
+  }
+}
+
 function withStudioUserHeaders(init?: RequestInit): RequestInit {
   const headers = new Headers(init?.headers)
   headers.set('X-Studio-User', getStudioUser())
@@ -74,10 +99,16 @@ export type VideoItem = {
   feedChannelTags?: string[]
 }
 
+export type ThumbnailImageFormat = 'webp' | 'jpg'
+
 export type DownloadJob = {
   id: string
   url: string
   quality: string
+  /** 是否请求写入视频缩略图文件（与 task 一致） */
+  writeThumbnail?: boolean
+  /** 封面图目标格式（仅 writeThumbnail 时有效） */
+  thumbnailFormat?: ThumbnailImageFormat
   status: string
   progress: string
   progressPercent?: number
@@ -121,7 +152,7 @@ export type StudioSettings = {
 }
 
 export async function getHealth(): Promise<Health> {
-  const res = await fetch(`${base}/api/health`)
+  const res = await apiFetch(`${base}/api/health`)
   return (await res.json().catch(() => ({ ok: false }))) as Health
 }
 
@@ -339,14 +370,29 @@ export async function suggestDownloadOutput(
 export async function startDownload(
   url: string,
   quality: string,
-  opts?: { outputDir?: string },
+  opts?: {
+    outputDir?: string
+    writeThumbnail?: boolean
+    thumbnailFormat?: ThumbnailImageFormat
+  },
 ): Promise<{ jobId: string }> {
-  const body: { url: string; quality: string; outputDir?: string } = {
+  const body: {
+    url: string
+    quality: string
+    outputDir?: string
+    writeThumbnail?: boolean
+    thumbnailFormat?: ThumbnailImageFormat
+  } = {
     url,
     quality,
   }
   const od = opts?.outputDir?.trim()
   if (od) body.outputDir = od
+  if (opts?.writeThumbnail === true) {
+    body.writeThumbnail = true
+    body.thumbnailFormat =
+      opts.thumbnailFormat === 'webp' ? 'webp' : 'jpg'
+  }
   const res = await apiFetch(`${base}/api/download`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -1,6 +1,10 @@
 {
   "name": "youtube-studio",
+  "version": "1.0.1",
   "private": true,
+  "description": "本地 YouTube 订阅与 yt-dlp 下载",
+  "author": "local",
+  "main": "electron/main.cjs",
   "workspaces": [
     "client",
     "server"
@@ -8,10 +12,48 @@
   "scripts": {
     "dev": "concurrently -n server,client -c blue,green \"npm run dev -w server\" \"wait-on tcp:127.0.0.1:8787 && npm run dev -w client\"",
     "build": "npm run build -w client",
-    "start": "npm run start -w server"
+    "start": "npm run start -w server",
+    "electron:dev": "electron .",
+    "build:electron-bundle": "node electron/bundle-prep.mjs",
+    "dist:mac": "npm run build && npm run build:electron-bundle && electron-builder --mac"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
     "wait-on": "^8.0.1"
+  },
+  "build": {
+    "publish": null,
+    "appId": "com.local.youtube-studio",
+    "productName": "YouTube Studio",
+    "copyright": "Copyright © local",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/main.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "electron-dist/studio",
+        "to": "studio"
+      }
+    ],
+    "mac": {
+      "icon": "client/public/icon.icns",
+      "identity": null,
+      "category": "public.app-category.utilities",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ]
+    }
   }
 }

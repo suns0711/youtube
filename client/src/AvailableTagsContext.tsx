@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { getStudioSettings } from './api'
+import { getStudioSettings, syncStudioUserWithServer } from './api'
 import { FALLBACK_STUDIO_TAGS } from './lib/studioTags'
 
 type AvailableTagsContextValue = {
@@ -63,8 +63,18 @@ export function AvailableTagsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
     setLoading(true)
-    void fetchTags().finally(() => setLoading(false))
+    void (async () => {
+      await syncStudioUserWithServer().catch(() => {})
+      if (cancelled) return
+      await fetchTags().finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [fetchTags])
 
   const refresh = useCallback(() => {

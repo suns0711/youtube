@@ -7,8 +7,8 @@ import {
   tagFeedFilterSelectedOverlayClass,
 } from '../lib/tagAccentStyles'
 
-const LOGO_IMG =
-  'https://lh3.googleusercontent.com/aida-public/AB6AXuAwYZxBfOZ648BeeAqyoHj59XSX41LzHTr7BhtwV8xxatrGo7WKVULPe-ZXUcFsqXIH2RzP12suuTv5ZL-QYpDErK8jxIMtikSv1m2PqABj5CcmYE6AtSefWNAWcbWmyHPahcWdz7HhONgpaTHUXM1CiHxQqBxtWMSV4pn2D8PnzPGMHvzj34dgmz4oSJIsKpSeCc9DQMobcQ-PO8EcLNk97At0hFK__bsfCKyDs7Bixzm_K1BJbisd_YttKxH2PC3yBeJrGluXTOCe'
+/** Vite：`public/icon.png` → 根路径 `/icon.png` */
+const LOGO_IMG = '/icon.png'
 
 const SIDEBAR_COLLAPSED_KEY = 'studio-sidebar-collapsed'
 
@@ -19,7 +19,7 @@ const navClassCollapsed = `${navClassBase} justify-center gap-0 px-2 py-3`
 const inactive =
   'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'
 const active =
-  'scale-[1.02] bg-surface-container-high font-semibold text-primary shadow-[0_0_20px_rgba(255,255,255,0.08)] ring-1 ring-inset ring-white/25'
+  'bg-surface-container-high font-semibold text-primary shadow-[0_0_20px_rgba(255,255,255,0.1)] ring-1 ring-inset ring-white/25'
 
 function readSidebarCollapsed(): boolean {
   try {
@@ -74,7 +74,7 @@ export function Sidebar() {
       }`}
     >
       <div
-        className={`mb-2 flex shrink-0 py-4 ${collapsed ? 'flex-col items-center gap-3' : 'items-center justify-between gap-2 px-4'}`}
+        className={`mb-2 flex shrink-0 py-4 ${collapsed ? 'flex-col items-center gap-3' : 'items-center justify-between gap-2 pl-4'}`}
       >
         {collapsed ? (
           <>
@@ -105,7 +105,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+              className="flex min-w-0 flex-1 items-center gap-2 text-left"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary">
                 <img
@@ -114,9 +114,10 @@ export function Sidebar() {
                   className="h-full w-full object-cover"
                 />
               </div>
-              <div className="min-w-0">
-                <h1 className="text-lg font-black tracking-tighter text-primary normal-case">
-                  YouTube Studio
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <h1 className="inline-flex items-baseline gap-1 whitespace-nowrap bg-gradient-to-r from-rose-500 via-amber-400 to-cyan-400 bg-clip-text font-black leading-none text-transparent normal-case">
+                  <span className="text-base tracking-tight">YouTube</span>
+                  <span className="text-xs font-black tracking-tight">Studio</span>
                 </h1>
               </div>
             </button>
@@ -133,7 +134,7 @@ export function Sidebar() {
         )}
       </div>
 
-      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+      <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto py-0.5">
         <NavLink
           to="/"
           end

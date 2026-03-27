@@ -539,17 +539,17 @@ export function SubscriptionsPage() {
                       ? '已关闭：该频道不显示在首页，点击开启'
                       : '已开启：在首页展示该频道更新，点击关闭'
                   }
-                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 p-0.5 transition-[box-shadow,background-color,border-color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/70 ${
+                  className={`relative h-7 w-12 shrink-0 rounded-full border-2 p-0.5 transition-[box-shadow,background-color,border-color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 ${
                     c.notificationsMuted
                       ? 'border-outline-variant/40 bg-surface-container-highest shadow-none'
-                      : 'border-primary bg-white/20 shadow-[0_0_16px_rgba(255,255,255,0.12),inset_0_1px_0_rgba(255,255,255,0.14)]'
+                      : 'border-emerald-500/90 bg-emerald-600 shadow-[0_0_14px_rgba(16,185,129,0.45),inset_0_1px_0_rgba(255,255,255,0.22)]'
                   }`}
                 >
                   <span
                     className={`block h-6 w-6 rounded-full shadow-md transition-[transform,background-color] duration-200 ease-out ${
                       c.notificationsMuted
                         ? 'translate-x-0 bg-on-surface'
-                        : 'translate-x-[1.25rem] bg-white ring-1 ring-primary/25'
+                        : 'translate-x-[1.25rem] bg-white ring-1 ring-emerald-900/15'
                     }`}
                     aria-hidden
                   />

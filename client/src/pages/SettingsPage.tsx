@@ -381,10 +381,7 @@ export function SettingsPage() {
                   {studioUserIds.map((id) => {
                     const active = id === getStudioUser()
                     return (
-                      <li
-                        key={id}
-                        className="flex min-h-[48px] items-stretch gap-1 overflow-hidden rounded-lg border border-white/12 bg-surface-container-high"
-                      >
+                      <li className="flex min-h-[48px] items-stretch gap-2">
                         <button
                           type="button"
                           onClick={() => {
@@ -392,10 +389,10 @@ export function SettingsPage() {
                             setStudioUser(id)
                             window.location.reload()
                           }}
-                          className={`min-w-0 flex flex-1 items-center justify-between gap-3 px-4 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40 ${
+                          className={`min-w-0 flex flex-1 items-center justify-between gap-3 rounded-lg border px-4 py-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/40 ${
                             active
-                              ? 'bg-primary/12 ring-1 ring-inset ring-white/25'
-                              : 'hover:bg-surface-container-highest/70'
+                              ? 'border-emerald-400/50 bg-emerald-500/14 ring-2 ring-inset ring-emerald-400/40'
+                              : 'border-white/12 bg-surface-container-high hover:bg-surface-container-highest/70'
                           }`}
                           aria-current={active ? 'true' : undefined}
                         >
@@ -403,7 +400,17 @@ export function SettingsPage() {
                             {id}
                           </span>
                           {active ? (
-                            <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-primary">
+                            <span className="flex shrink-0 items-center gap-1 rounded-full border border-emerald-400/55 bg-emerald-600/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-100 shadow-[0_0_12px_rgba(16,185,129,0.35)]">
+                              <span
+                                className="material-symbols-outlined text-[15px] leading-none text-emerald-400"
+                                style={{
+                                  fontVariationSettings:
+                                    "'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 20",
+                                }}
+                                aria-hidden
+                              >
+                                check
+                              </span>
                               当前
                             </span>
                           ) : (
@@ -422,7 +429,7 @@ export function SettingsPage() {
                             setUserManageErr(null)
                             setRemoveUserTarget(id)
                           }}
-                          className="shrink-0 border-l border-white/10 px-3 text-error transition-colors hover:bg-error/10 disabled:pointer-events-none disabled:opacity-35"
+                          className="flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center rounded-lg border border-white/12 bg-surface-container-high px-0 text-error transition-colors hover:border-error/40 hover:bg-error/10 disabled:pointer-events-none disabled:opacity-35"
                           title={
                             studioUserIds.length <= 1
                               ? '至少保留一个用户'
@@ -594,14 +601,15 @@ export function SettingsPage() {
                           </span>
                         </button>
                       </div>
-                      <div className="flex justify-end sm:col-span-1 sm:justify-center">
+                      <div className="flex items-stretch justify-end sm:col-span-1 sm:justify-center">
                         <button
                           type="button"
                           onClick={() => removeMapping(m.id)}
-                          className="text-outline-variant transition-colors hover:text-error"
+                          className="flex min-h-[46px] min-w-[46px] shrink-0 items-center justify-center rounded-lg border border-white/12 bg-surface-container-high text-error transition-colors hover:border-error/40 hover:bg-error/10"
                           aria-label="删除映射"
+                          title="删除此映射"
                         >
-                          <span className="material-symbols-outlined text-lg">
+                          <span className="material-symbols-outlined text-lg leading-none">
                             delete
                           </span>
                         </button>

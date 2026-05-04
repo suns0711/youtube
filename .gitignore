@@ -2,6 +2,10 @@ node_modules
 dist
 data/downloads/*
 !data/downloads/.gitkeep
+data/users
+data/studio-users.json
+data/studio-settings.json
+data/subscriptions.json
 .DS_Store
 *.log
 electron-dist

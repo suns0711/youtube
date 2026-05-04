@@ -27,6 +27,21 @@ npm run build
 
 产物在 `client/dist/`。生产环境可让任意静态服务器托管该目录，并将 `/api` 反向代理到 Node 服务；或自行在 `server` 中挂载静态目录（当前仓库未内置，避免与未知 API 路径冲突）。
 
+## 数据与初始化
+
+`data/` 目录用于存储用户数据（订阅、设置、下载文件等），**默认已加入 `.gitignore`**，不会随代码提交。
+
+首次启动时，服务端会自动初始化以下内容：
+
+| 目录/文件 | 说明 |
+|-----------|------|
+| `data/downloads/` | 下载文件存放目录（需保留 `.gitkeep`） |
+| `data/studio-users.json` | 用户列表（默认创建 `ss`, `yb` 两个用户） |
+| `data/users/<userId>/subscriptions.json` | 各用户的订阅频道数据 |
+| `data/users/<userId>/studio-settings.json` | 各用户的个人设置 |
+
+如需重置数据，删除 `data/` 目录后重新运行即可自动重建。
+
 ## 环境变量（服务端）
 
 | 变量 | 说明 |

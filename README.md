@@ -57,6 +57,51 @@ npm run build
 
 旧路径 `/trending` 会重定向到 `/subscriptions`。服务端仍保留 `GET /api/trending`（未在导航中暴露）。
 
+## 多用户支持
+
+系统支持多个独立用户，每个用户有自己独立的订阅、设置和下载目录。
+
+### 用户管理
+
+- 用户 ID 通过 HTTP Header `X-Studio-User` 传递
+- 前端顶部栏提供用户切换器
+- 服务端通过 `data/studio-users.json` 管理用户列表（`{ "users": ["test1", "test2"] }`）
+- 每个用户的数据存储在 `data/users/<userId>/` 目录下
+
+### 用户数据隔离
+
+每个用户独立管理：
+
+| 数据 | 路径 |
+|------|------|
+| 订阅频道 | `data/users/<userId>/subscriptions.json` |
+| 用户设置 | `data/users/<userId>/studio-settings.json` |
+| 下载目录 | 默认为 `data/downloads/`（可在设置中自定义） |
+
+旧版全局配置文件（`data/subscriptions.json`、`data/studio-settings.json`）仍被兼容读取作为回退。
+
+### 添加新用户
+
+1. 编辑 `data/studio-users.json`，在 users 数组中添加新用户 ID
+2. 系统会自动为新用户创建对应的数据目录
+
+## 数据目录结构
+
+```
+data/
+├── downloads/              # 下载文件（可配置）
+├── studio-users.json      # 用户列表配置
+├── studio-settings.json    # 全局设置（回退）
+├── subscriptions.json      # 全局订阅（回退）
+└── users/
+    ├── test1/
+    │   ├── subscriptions.json
+    │   └── studio-settings.json
+    └── test2/
+        ├── subscriptions.json
+        └── studio-settings.json
+```
+
 ## 合规提示
 
 请仅下载您有权获取的内容，并遵守 YouTube 服务条款与适用法律。本工具仅供学习与个人合法用途。

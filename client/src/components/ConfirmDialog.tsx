@@ -58,7 +58,7 @@ export function ConfirmDialog({
         aria-label={t('common.close')}
         onClick={onCancel}
       />
-      <div className="relative w-full max-w-md rounded-xl border border-outline-variant/20 bg-surface-container-low p-6 shadow-2xl inner-highlight">
+      <div className="relative w-full max-w-md rounded-xl border border-outline-variant/20 bg-surface-container p-6 shadow-2xl inner-highlight">
         <div className="mb-2 flex items-start justify-between gap-3">
           <h3
             id="confirm-dialog-title"

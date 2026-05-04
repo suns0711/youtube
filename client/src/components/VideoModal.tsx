@@ -48,7 +48,7 @@ export function VideoModal({ video, open, onClose, onDownload }: Props) {
       role="dialog"
       aria-modal="true"
     >
-      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container-low shadow-2xl">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-outline-variant/20 bg-surface-container shadow-2xl">
         <div className="flex items-center justify-between border-b border-outline-variant/15 px-4 py-3">
           <h2 className="truncate pr-4 text-lg font-bold text-primary">
             {v.title}

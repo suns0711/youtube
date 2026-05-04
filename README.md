@@ -36,7 +36,7 @@ npm run build
 | 目录/文件 | 说明 |
 |-----------|------|
 | `data/downloads/` | 下载文件存放目录（需保留 `.gitkeep`） |
-| `data/studio-users.json` | 用户列表（默认创建 `ss`, `yb` 两个用户） |
+| `data/studio-users.json` | 用户列表 |
 | `data/users/<userId>/subscriptions.json` | 各用户的订阅频道数据 |
 | `data/users/<userId>/studio-settings.json` | 各用户的个人设置 |
 

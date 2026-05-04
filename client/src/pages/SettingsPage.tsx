@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAvailableTags } from '../AvailableTagsContext'
+import { useI18n } from '../i18n'
 import {
   addStudioUser,
   emitStudioUsersChanged,
@@ -47,6 +48,8 @@ function countPending(saved: StudioSettings, draft: StudioSettings): number {
 }
 
 export function SettingsPage() {
+  const { locale, setLocale, t } = useI18n()
+  const isZh = locale === 'zh-CN'
   const { refresh: refreshGlobalTags } = useAvailableTags()
   const [saved, setSaved] = useState<StudioSettings | null>(null)
   const [draft, setDraft] = useState<StudioSettings | null>(null)
@@ -237,17 +240,19 @@ export function SettingsPage() {
       if (!row) return
       const id = row.value.trim().toLowerCase()
       if (!id) {
-        setUserManageErr('请填写用户 id')
+        setUserManageErr(isZh ? '请填写用户 id' : 'Please enter user id')
         return
       }
       if (!/^[a-z0-9_-]{1,32}$/i.test(id)) {
         setUserManageErr(
-          '用户 id 须为 1–32 位字母、数字、下划线（_）或连字符（-）',
+          isZh
+            ? '用户 id 须为 1–32 位字母、数字、下划线（_）或连字符（-）'
+            : 'User id must be 1-32 chars: letters, numbers, _ or -',
         )
         return
       }
       if (studioUserIds.some((u) => u.toLowerCase() === id)) {
-        setUserManageErr('该用户已存在')
+        setUserManageErr(isZh ? '该用户已存在' : 'User already exists')
         return
       }
       setCommittingDraftId(draftId)
@@ -315,7 +320,7 @@ export function SettingsPage() {
         {loadErr ? (
           <p className="text-error">{loadErr}</p>
         ) : (
-          <p>正在加载设置…</p>
+          <p>{isZh ? '正在加载设置…' : 'Loading settings...'}</p>
         )}
       </div>
     )
@@ -326,7 +331,7 @@ export function SettingsPage() {
       <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
         <div className="flex flex-1 items-center gap-8">
           <h2 className="text-3xl font-black tracking-tighter text-on-surface">
-            系统设置
+            {t('settings.title')}
           </h2>
         </div>
         <PageHeaderToolbar />
@@ -340,11 +345,47 @@ export function SettingsPage() {
         ) : null}
 
         <div className="mb-12">
-          
-          
+          <div className="inner-highlight rounded-xl border border-white/14 bg-surface-container p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.45)] md:p-8">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h4 className="text-lg font-bold tracking-tight text-on-surface">
+                {t('settings.languageTitle')}
+              </h4>
+              <span className="text-xs text-on-surface-variant/70">
+                {t('common.language')}
+              </span>
+            </div>
+            <p className="mb-4 text-sm text-on-surface-variant/80">
+              {t('settings.languageDesc')}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setLocale('zh-CN')}
+                className={`rounded-lg border px-4 py-2 text-sm font-bold transition-colors ${
+                  locale === 'zh-CN'
+                    ? 'border-white/25 bg-primary-container text-on-primary-container'
+                    : 'border-white/12 bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest'
+                }`}
+              >
+                {t('common.chinese')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocale('en-US')}
+                className={`rounded-lg border px-4 py-2 text-sm font-bold transition-colors ${
+                  locale === 'en-US'
+                    ? 'border-white/25 bg-primary-container text-on-primary-container'
+                    : 'border-white/12 bg-surface-container-high text-on-surface-variant hover:bg-surface-container-highest'
+                }`}
+              >
+                {t('common.english')}
+              </button>
+            </div>
+          </div>
+
           {health && !health.ok ? (
             <p className="mt-4 text-sm text-error">
-              无法使用 yt-dlp：{health.error}
+              {isZh ? `无法使用 yt-dlp：${health.error}` : `yt-dlp unavailable: ${health.error}`}
             </p>
           ) : null}
         </div>
@@ -356,14 +397,14 @@ export function SettingsPage() {
                 manage_accounts
               </span>
               <h4 className="text-lg font-bold tracking-tight text-on-surface">
-                用户管理
+                {isZh ? '用户管理' : 'User Management'}
               </h4>
             </div>
 
             <div className="inner-highlight space-y-8 rounded-xl border border-white/14 bg-surface-container p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.45)] md:p-8">
               <div>
                 <label className="mb-3 block text-xs font-bold uppercase tracking-widest text-on-surface-variant/92">
-                  账号列表
+                  {isZh ? '账号列表' : 'Account List'}
                 </label>
                 {userManageErr ? (
                   <p className="mb-3 text-sm text-error">{userManageErr}</p>
@@ -402,7 +443,7 @@ export function SettingsPage() {
                               >
                                 check
                               </span>
-                              当前
+                              {isZh ? '当前' : 'Current'}
                             </span>
                           ) : (
                             <span className="material-symbols-outlined shrink-0 text-lg text-on-surface-variant/50">
@@ -423,10 +464,10 @@ export function SettingsPage() {
                           className="flex min-h-[48px] min-w-[48px] shrink-0 items-center justify-center rounded-lg border border-white/12 bg-surface-container-high px-0 text-error transition-colors hover:border-error/40 hover:bg-error/10 disabled:pointer-events-none disabled:opacity-35"
                           title={
                             studioUserIds.length <= 1
-                              ? '至少保留一个用户'
-                              : `删除用户 ${id}`
+                              ? (isZh ? '至少保留一个用户' : 'Keep at least one user')
+                              : (isZh ? `删除用户 ${id}` : `Delete user ${id}`)
                           }
-                          aria-label={`删除用户 ${id}`}
+                          aria-label={isZh ? `删除用户 ${id}` : `Delete user ${id}`}
                         >
                           <span className="material-symbols-outlined text-lg leading-none">
                             delete
@@ -451,12 +492,16 @@ export function SettingsPage() {
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') commitUserDraft(d.id)
                             }}
-                            placeholder="新用户 id，例如 editor_01"
+                            placeholder={
+                              isZh
+                                ? '新用户 id，例如 editor_01'
+                                : 'New user id, e.g. editor_01'
+                            }
                             disabled={busy}
                             autoComplete="off"
                             spellCheck={false}
                             autoFocus={i === pendingNewUsers.length - 1}
-                            aria-label="新用户 id"
+                            aria-label={isZh ? '新用户 id' : 'New user id'}
                             className="w-full border-0 bg-transparent px-0 py-1 font-mono text-xs text-on-surface outline-none ring-0 placeholder:text-on-surface-variant/40 focus:ring-0 disabled:opacity-50"
                           />
                         </div>
@@ -465,8 +510,8 @@ export function SettingsPage() {
                           disabled={busy || removeUserLoading}
                           onClick={() => commitUserDraft(d.id)}
                           className="shrink-0 border-l border-white/10 px-3 text-primary transition-colors hover:bg-primary/10 disabled:pointer-events-none disabled:opacity-35"
-                          title="创建用户"
-                          aria-label="创建用户"
+                          title={isZh ? '创建用户' : 'Create user'}
+                          aria-label={isZh ? '创建用户' : 'Create user'}
                         >
                           <span className="material-symbols-outlined text-lg leading-none">
                             {busy ? 'hourglass_empty' : 'check'}
@@ -480,8 +525,8 @@ export function SettingsPage() {
                             removeUserDraft(d.id)
                           }}
                           className="shrink-0 border-l border-white/10 px-3 text-on-surface-variant transition-colors hover:bg-surface-container-highest disabled:pointer-events-none disabled:opacity-35"
-                          title="取消"
-                          aria-label="取消新建"
+                          title={t('common.cancel')}
+                          aria-label={isZh ? '取消新建' : 'Cancel new user'}
                         >
                           <span className="material-symbols-outlined text-lg leading-none">
                             close
@@ -497,7 +542,7 @@ export function SettingsPage() {
                   className="mt-2 flex items-center gap-2 rounded px-2 py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/5"
                 >
                   <span className="material-symbols-outlined text-sm">add</span>
-                  新建用户
+                  {isZh ? '新建用户' : 'New User'}
                 </button>
                
               </div>
@@ -510,14 +555,14 @@ export function SettingsPage() {
                 folder_managed
               </span>
               <h4 className="text-lg font-bold tracking-tight text-on-surface">
-                存储与目录
+                {isZh ? '存储与目录' : 'Storage & Paths'}
               </h4>
             </div>
 
             <div className="inner-highlight space-y-8 rounded-xl border border-white/14 bg-surface-container p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.45)] md:p-8">
               <div>
                 <label className="mb-3 block text-xs font-bold uppercase tracking-widest text-on-surface-variant/92">
-                  默认下载目录
+                  {isZh ? '默认下载目录' : 'Default Download Directory'}
                 </label>
                 {downloadDirPickErr ? (
                   <p className="mb-3 text-sm text-error">{downloadDirPickErr}</p>
@@ -530,12 +575,18 @@ export function SettingsPage() {
                   />
                   <button
                     type="button"
-                    title="在运行后端的电脑上选择文件夹"
+                    title={
+                      isZh
+                        ? '在运行后端的电脑上选择文件夹'
+                        : 'Pick folder on backend machine'
+                    }
                     disabled={pickingMappingId !== null || pickingDownloadDir}
                     onClick={changePath}
                     className="shrink-0 rounded-lg border border-white/12 bg-surface-container-high px-6 py-3 text-sm font-bold text-primary transition-colors hover:border-white/18 hover:bg-surface-container-highest disabled:pointer-events-none disabled:opacity-50"
                   >
-                    {pickingDownloadDir ? '选择中…' : '修改路径'}
+                    {pickingDownloadDir
+                      ? (isZh ? '选择中…' : 'Picking...')
+                      : (isZh ? '修改路径' : 'Change Path')}
                   </button>
                 </div>
                 <p className="mt-2 text-[11px] uppercase tracking-wider text-on-surface-variant/82">
@@ -545,7 +596,7 @@ export function SettingsPage() {
 
               <div>
                 <label className="mb-4 block text-xs font-bold uppercase tracking-widest text-on-surface-variant/92">
-                  标签与文件夹映射
+                  {isZh ? '标签与文件夹映射' : 'Tag to Folder Mapping'}
                 </label>
                 {mappingPickErr ? (
                   <p className="mb-3 text-sm text-error">{mappingPickErr}</p>
@@ -566,7 +617,7 @@ export function SettingsPage() {
                           value={m.tag}
                           options={optionsForTag(m.tag)}
                           onChange={(tag) => updateMapping(m.id, { tag })}
-                          aria-label="标签"
+                          aria-label={isZh ? '标签' : 'Tag'}
                         />
                       </div>
                       <div className="flex min-h-[46px] gap-2 sm:col-span-8">
@@ -585,7 +636,7 @@ export function SettingsPage() {
                           }
                           onClick={() => pickPathForMapping(m.id)}
                           className="flex shrink-0 items-center justify-center self-stretch rounded-lg border border-white/12 bg-surface-container-high px-3 text-primary transition-colors hover:border-white/18 hover:bg-surface-container-highest disabled:pointer-events-none disabled:opacity-50"
-                          aria-label="选择文件夹路径"
+                          aria-label={isZh ? '选择文件夹路径' : 'Select folder path'}
                         >
                           <span className="material-symbols-outlined text-xl">
                             folder_open
@@ -597,8 +648,8 @@ export function SettingsPage() {
                           type="button"
                           onClick={() => removeMapping(m.id)}
                           className="flex min-h-[46px] min-w-[46px] shrink-0 items-center justify-center rounded-lg border border-white/12 bg-surface-container-high text-error transition-colors hover:border-error/40 hover:bg-error/10"
-                          aria-label="删除映射"
-                          title="删除此映射"
+                          aria-label={isZh ? '删除映射' : 'Delete mapping'}
+                          title={isZh ? '删除此映射' : 'Delete this mapping'}
                         >
                           <span className="material-symbols-outlined text-lg leading-none">
                             delete
@@ -613,7 +664,7 @@ export function SettingsPage() {
                     className="mt-2 flex items-center gap-2 rounded px-2 py-2 text-xs font-bold text-primary transition-colors hover:bg-primary/5"
                   >
                     <span className="material-symbols-outlined text-sm">add</span>
-                    新增映射
+                    {isZh ? '新增映射' : 'Add Mapping'}
                   </button>
                 </div>
               </div>
@@ -621,6 +672,9 @@ export function SettingsPage() {
               {health?.ok ? (
                 <p className="border-t border-white/10 pt-6 font-mono text-[11px] text-on-surface-variant/82">
                   引擎：yt-dlp {health.ytDlp} · 可执行文件 {health.binary}
+                  {isZh
+                    ? `引擎：yt-dlp ${health.ytDlp} · 可执行文件 ${health.binary}`
+                    : `Engine: yt-dlp ${health.ytDlp} · Binary ${health.binary}`}
                 </p>
               ) : null}
             </div>
@@ -632,10 +686,12 @@ export function SettingsPage() {
         <div className="fixed bottom-10 left-1/2 z-20 flex -translate-x-1/2 transform items-center gap-6 rounded-2xl border border-outline-variant/20 px-6 py-4 shadow-2xl glass-panel md:gap-8 md:px-8">
           <div className="flex flex-col">
             <span className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60">
-              待保存
+              {isZh ? '待保存' : 'Pending'}
             </span>
             <span className="text-xs font-medium text-on-surface">
-              尚有 {pendingCount} 项未保存
+              {isZh
+                ? `尚有 ${pendingCount} 项未保存`
+                : `${pendingCount} unsaved change(s)`}
             </span>
           </div>
           <div className="hidden h-8 w-px bg-outline-variant/20 sm:block" />
@@ -645,7 +701,7 @@ export function SettingsPage() {
               onClick={discard}
               className="rounded-lg px-4 py-2.5 text-sm font-bold text-on-surface-variant transition-all hover:bg-surface-container-highest sm:px-6"
             >
-              放弃
+              {isZh ? '放弃' : 'Discard'}
             </button>
             <button
               type="button"
@@ -653,7 +709,9 @@ export function SettingsPage() {
               onClick={() => void apply()}
               className="rounded-lg bg-primary-container px-6 py-2.5 text-sm font-bold text-on-primary-container shadow-[0_0_24px_rgba(255,255,255,0.14)] transition-all active:scale-95 disabled:opacity-50 sm:px-8"
             >
-              {applying ? '保存中…' : '保存更改'}
+              {applying
+                ? (isZh ? '保存中…' : 'Saving...')
+                : (isZh ? '保存更改' : 'Save Changes')}
             </button>
           </div>
         </div>
@@ -667,14 +725,16 @@ export function SettingsPage() {
 
       <ConfirmDialog
         open={removeUserTarget !== null}
-        title="删除用户"
+        title={isZh ? '删除用户' : 'Delete User'}
         description={
           removeUserTarget
-            ? `确定删除用户「${removeUserTarget}」？将永久删除其目录 data/users/${removeUserTarget}/ 以及该账号在服务端内存中的下载任务。此操作不可恢复。`
+            ? (isZh
+              ? `确定删除用户「${removeUserTarget}」？将永久删除其目录 data/users/${removeUserTarget}/ 以及该账号在服务端内存中的下载任务。此操作不可恢复。`
+              : `Delete user "${removeUserTarget}"? This permanently removes data/users/${removeUserTarget}/ and in-memory download jobs for this account.`)
             : ''
         }
         variant="danger"
-        confirmLabel="删除"
+        confirmLabel={isZh ? '删除' : 'Delete'}
         loading={removeUserLoading}
         onConfirm={() => confirmRemoveUser()}
         onCancel={() => {

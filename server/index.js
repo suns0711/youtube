@@ -122,7 +122,7 @@ function sortedAllowedUsers() {
 const execFileAsync = promisify(execFile);
 
 const app = express();
-const PORT = Number(process.env.PORT) || 8787;
+const PORT = Number(process.env.PORT) || 8788;
 const YT_DLP = process.env.YT_DLP_PATH || 'yt-dlp';
 /** 首页订阅 feed 各频道 yt-dlp 并行上限（提高吞吐、避免瞬时并发过高） */
 const RECENT_FEED_PARALLEL =
@@ -2264,7 +2264,7 @@ server.on('error', (err) => {
       `[server] 端口 ${PORT} 已被占用。可执行: lsof -nP -iTCP:${PORT} -sTCP:LISTEN`,
     );
     console.error(
-      `[server] 结束进程: kill <PID>，或换端口: PORT=8788 npm run dev`,
+      `[server] 结束进程: kill <PID>，或换端口: PORT=8787 npm run dev`,
     );
   } else {
     console.error(err);

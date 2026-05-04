@@ -1,4 +1,5 @@
 import type { VideoItem } from '../api'
+import { useI18n } from '../i18n'
 import {
   formatDuration,
   formatUploadDateIso,
@@ -15,7 +16,7 @@ type Props = {
 
 function channelAvatarUrl(v: VideoItem): string {
   if (v.channel_thumbnail) return v.channel_thumbnail
-  const name = encodeURIComponent(v.channel || '频道')
+  const name = encodeURIComponent(v.channel || 'channel')
   return `https://ui-avatars.com/api/?name=${name}&size=128&background=2a2a2a&color=ffffff&bold=true`
 }
 
@@ -25,6 +26,7 @@ export function VideoCard({
   onDownload,
   hideChannelMeta = false,
 }: Props) {
+  const { t } = useI18n()
   const thumb =
     video.thumbnail
     || `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`
@@ -102,7 +104,7 @@ export function VideoCard({
           ) : (
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium text-on-surface-variant">
-                {video.channel || 'YouTube'}
+                {video.channel || t('video.defaultChannel')}
               </span>
               {uploaded ? (
                 <>
@@ -130,7 +132,7 @@ export function VideoCard({
               onDownload(video)
             }}
             className="shrink-0 self-start p-1 text-on-surface-variant transition-colors hover:text-primary"
-            title="下载"
+            title={t('video.download')}
           >
             <span className="material-symbols-outlined text-xl">download</span>
           </button>

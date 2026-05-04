@@ -28,6 +28,7 @@ const VideoModal = lazy(async () => {
   return { default: m.VideoModal }
 })
 import { useAvailableTags } from '../AvailableTagsContext'
+import { useI18n } from '../i18n'
 import { buildDownloadsHref } from '../lib/downloadsNavigation'
 import {
   resolveTagAccentId,
@@ -57,6 +58,7 @@ function sortVideosInSection(videos: VideoItem[]): VideoItem[] {
 }
 
 export function LibraryPage() {
+  const { t } = useI18n()
   const { tagAccentByLabel } = useAvailableTags()
   const [params, setParams] = useSearchParams()
   const qParam = params.get('q') || ''
@@ -212,7 +214,7 @@ export function LibraryPage() {
       <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
         <div className="flex flex-1 items-center gap-8">
           <h2 className="text-3xl font-black tracking-tighter text-on-surface">
-            首页
+            {t('library.title')}
           </h2>
         </div>
         <PageHeaderToolbar />
@@ -242,13 +244,13 @@ export function LibraryPage() {
             && feedTagFilter
             && visibleSubSections.length === 0 ? (
               <p className="mb-10 text-sm text-on-surface-variant">
-                没有包含该标签的订阅频道。{' '}
+                {t('library.noTagChannels')}{' '}
                 <button
                   type="button"
                   className="font-semibold text-primary hover:underline"
                   onClick={() => clearFeedTag()}
                 >
-                  清除筛选
+                  {t('subscriptions.clearFilter')}
                 </button>
               </p>
             ) : null}
@@ -316,11 +318,11 @@ export function LibraryPage() {
                         />
                       ) : subVideosFailed ? (
                         <p className="text-sm text-error">
-                          无法加载最新视频，请稍后刷新页面。
+                          {t('library.loadLatestFailed')}
                         </p>
                       ) : (
                         <p className="text-sm text-on-surface-variant">
-                          暂无视频条目。
+                          {t('library.emptyVideos')}
                         </p>
                       )
                     ) : (
@@ -359,7 +361,7 @@ export function LibraryPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="shrink-0 rounded-full outline-none ring-offset-2 ring-offset-surface transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/50"
-                              title="在 YouTube 打开频道"
+                              title={t('library.openOnYoutube')}
                             >
                               {avatarInner}
                             </a>
@@ -372,7 +374,7 @@ export function LibraryPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="min-w-0 flex-1 rounded-lg px-0.5 py-0.5 text-left outline-none transition-colors hover:bg-surface-container-high/55 focus-visible:ring-2 focus-visible:ring-primary/45"
-                              title="在 YouTube 打开频道"
+                              title={t('library.openOnYoutube')}
                             >
                               <h3 className="text-xl font-bold tracking-tight text-on-surface group-hover/ch:text-primary">
                                 {section.channelName}
@@ -385,7 +387,7 @@ export function LibraryPage() {
                             <Link
                               to={`/subscriptions?channel=${encodeURIComponent(section.subscriptionId)}`}
                               className="min-w-0 flex-1 rounded-lg px-0.5 py-0.5 text-left outline-none transition-colors hover:bg-surface-container-high/55 focus-visible:ring-2 focus-visible:ring-primary/45"
-                              title="在频道页打开此订阅"
+                              title={t('library.openInChannelsPage')}
                             >
                               <h3 className="text-xl font-bold tracking-tight text-on-surface group-hover/ch:text-primary">
                                 {section.channelName}
@@ -407,11 +409,11 @@ export function LibraryPage() {
             {!subVideosLoading && !subError && subSections.length === 0 ? (
               <div className="mb-10 max-w-2xl">
                 <p className="leading-relaxed text-on-surface-variant">
-                  当前没有可展示的订阅视频。请先{' '}
+                  {t('library.noFeed')}{' '}
                   <Link to="/subscriptions" className="text-primary hover:underline">
-                    添加频道
+                    {t('library.addChannel')}
                   </Link>
-                  ；若已在频道页关闭通知，该频道将不会出现在此页。仅开启通知的频道会拉取并展示最近稿件。
+                  {t('library.noFeedTail')}
                 </p>
               </div>
             ) : null}
@@ -422,7 +424,7 @@ export function LibraryPage() {
 
         {!loading && !error && qParam && videos.length === 0 ? (
           <p className="text-on-surface-variant">
-            未找到相关视频，请尝试其他关键词。
+            {t('library.noSearchResults')}
           </p>
         ) : null}
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { VideoItem } from '../api'
 import { getVideoInfo } from '../api'
+import { useI18n } from '../i18n'
 import { formatDuration } from '../util'
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
 }
 
 export function VideoModal({ video, open, onClose, onDownload }: Props) {
+  const { t } = useI18n()
   const [detail, setDetail] = useState<VideoItem | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -62,7 +64,7 @@ export function VideoModal({ video, open, onClose, onDownload }: Props) {
         <div className="custom-scrollbar flex-1 overflow-y-auto p-4">
           {video.sample ? (
             <p className="mb-3 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-xs text-primary">
-              示例卡片：封面与标题为原型展示；播放器内为对应 ID 的真实 YouTube 视频。
+              {t('videoModal.sampleTip')}
             </p>
           ) : null}
           <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
@@ -78,9 +80,9 @@ export function VideoModal({ video, open, onClose, onDownload }: Props) {
             <p>
               <span className="text-on-surface">{v.channel}</span>
               <span className="mx-2 text-outline-variant">·</span>
-              时长 {formatDuration(v.duration)}
+              {t('videoModal.duration')} {formatDuration(v.duration)}
             </p>
-            {loading ? <p>加载详情…</p> : null}
+            {loading ? <p>{t('videoModal.loadingDetail')}</p> : null}
             {err ? <p className="text-error">{err}</p> : null}
             {v.description ? (
               <p className="whitespace-pre-wrap leading-relaxed text-on-surface-variant/90">
@@ -96,7 +98,7 @@ export function VideoModal({ video, open, onClose, onDownload }: Props) {
             rel="noreferrer"
             className="rounded-lg border border-outline-variant/30 px-4 py-2 text-sm text-on-surface-variant hover:border-primary/40 hover:text-primary"
           >
-            在 YouTube 打开
+            {t('videoModal.openYoutube')}
           </a>
           <button
             type="button"
@@ -108,7 +110,7 @@ export function VideoModal({ video, open, onClose, onDownload }: Props) {
             }
             className="button-gradient rounded-lg px-4 py-2 text-sm font-semibold text-on-primary-container"
           >
-            前往下载
+            {t('videoModal.goDownload')}
           </button>
         </div>
       </div>

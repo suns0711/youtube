@@ -1,3 +1,5 @@
+import { useI18n } from '../i18n'
+
 type Props = {
   /** 占位「频道」区块数量 */
   sections?: number
@@ -12,11 +14,12 @@ export function FeedLoadingSkeleton({
   sections = 3,
   cardsPerSection = 3,
 }: Props) {
+  const { t } = useI18n()
   return (
     <div
       className="space-y-16"
       aria-busy="true"
-      aria-label="正在加载订阅动态"
+      aria-label={t('skeleton.loadingFeed')}
     >
       <div className="animate-pulse">
         {Array.from({ length: sections }, (_, si) => (
@@ -59,11 +62,12 @@ export function SectionVideosSkeleton({
 }: {
   cardsPerSection?: number
 }) {
+  const { t } = useI18n()
   return (
     <div
       className="grid animate-pulse grid-cols-1 gap-x-6 gap-y-8 md:grid-cols-3"
       aria-busy="true"
-      aria-label="正在加载视频"
+      aria-label={t('skeleton.loadingVideos')}
     >
       {Array.from({ length: cardsPerSection }, (_, ci) => (
         <div key={ci} className="flex flex-col gap-4">
@@ -80,11 +84,12 @@ export function SectionVideosSkeleton({
 
 /** 搜索模式下的栅格占位 */
 export function SearchResultsSkeleton({ count = 8 }: { count?: number }) {
+  const { t } = useI18n()
   return (
     <div
       className="mt-2 grid animate-pulse grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
       aria-busy="true"
-      aria-label="正在搜索"
+      aria-label={t('skeleton.searching')}
     >
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="flex flex-col gap-4">

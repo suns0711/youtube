@@ -1,5 +1,5 @@
 {
-  "downloadDir": "/Users/lalala/Downloads/youtube",
+  "downloadDir": "/Users/lalala/Downloads/youtube/Lego",
   "tagMappings": [
     {
       "id": "baf66847-440b-495b-b0c1-26b670e78404",
@@ -17,6 +17,18 @@
       "id": "d482edb9-c9da-4ee0-8052-711b0545876c",
       "tag": "漂移车",
       "path": "/Users/lalala/Downloads/youtube/工程车/RC_Car",
+      "dot": "tertiary"
+    },
+    {
+      "id": "fabe36d3-7d98-4e42-a638-19d5853b2abc",
+      "tag": "玩具车修复",
+      "path": "/Users/lalala/Downloads/youtube/工程车/修复",
+      "dot": "primary"
+    },
+    {
+      "id": "b0c984b9-53a1-4600-b4d0-34dacaca92c7",
+      "tag": "RC工程车",
+      "path": "/Users/lalala/Downloads/youtube/工程车",
       "dot": "tertiary"
     }
   ],
@@ -42,6 +54,7 @@
     "RC工程车": "cyan",
     "Lego": "sky",
     "NBA": "coral",
-    "漂移车": "sky"
+    "漂移车": "sky",
+    "玩具车修复": "coral"
   }
 }

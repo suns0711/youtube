@@ -20,6 +20,7 @@ import {
   type DownloadJob,
 } from '../api'
 import { useAvailableTags } from '../AvailableTagsContext'
+import { useI18n } from '../i18n'
 import { DOWNLOAD_QUEUE_SECTION_ID } from '../lib/downloadsNavigation'
 import { resolveTagMappedDownloadPath } from '../lib/resolveTagDownloadPath'
 import { isAllowedYoutubeUrl, youtubeIdFromUrl } from '../util'
@@ -210,6 +211,8 @@ function progressWidth(job: DownloadJob): number {
 }
 
 export function DownloadsPage() {
+  const { locale } = useI18n()
+  const isZh = locale === 'zh-CN'
   const { refresh: refreshGlobalStudio } = useAvailableTags()
   const location = useLocation()
   const [params] = useSearchParams()
@@ -419,22 +422,38 @@ export function DownloadsPage() {
       .map((s) => s.trim())
       .filter((line) => line.length > 0)
     if (!lines.length) {
-      setMsg('请至少输入一个 YouTube 链接（可多行，每行一个）。')
+      setMsg(
+        isZh
+          ? '请至少输入一个 YouTube 链接（可多行，每行一个）。'
+          : 'Please enter at least one YouTube URL (one per line).',
+      )
       return
     }
     if (!settingsLoaded || !downloadPath.trim()) {
-      setMsg('保存路径尚未就绪，请稍候或到「设置」配置默认目录。')
+      setMsg(
+        isZh
+          ? '保存路径尚未就绪，请稍候或到「设置」配置默认目录。'
+          : 'Save path is not ready. Please wait or configure default path in Settings.',
+      )
       return
     }
     if (suggestPending) {
-      setMsg('正在根据链接识别频道与目录，请稍候。')
+      setMsg(
+        isZh
+          ? '正在根据链接识别频道与目录，请稍候。'
+          : 'Recognizing channel and folder from URL. Please wait.',
+      )
       return
     }
     if (
       busy
       || jobs.some((j) => j.status === 'downloading')
     ) {
-      setMsg('当前有下载任务正在执行，请等待结束后再提交。')
+      setMsg(
+        isZh
+          ? '当前有下载任务正在执行，请等待结束后再提交。'
+          : 'A download is in progress. Please wait until it finishes.',
+      )
       return
     }
     const lo = clampIntervalSec(intervalMinSec)
@@ -493,7 +512,7 @@ export function DownloadsPage() {
   const openCompletedJobInFolder = (job: DownloadJob) => {
     if (job.status !== 'complete' || !job.filePath?.trim()) return
     void revealDownloadedFileInFolder(job.id).catch((e: Error) => {
-      setMsg(e.message || '无法在文件夹中显示')
+      setMsg(e.message || (isZh ? '无法在文件夹中显示' : 'Unable to reveal in folder'))
     })
   }
 
@@ -527,7 +546,7 @@ export function DownloadsPage() {
       <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
         <div className="flex flex-1 items-center gap-8">
           <h2 className="text-3xl font-black tracking-tighter text-on-surface">
-            下载
+            {isZh ? '下载' : 'Downloads'}
           </h2>
         </div>
         <PageHeaderToolbar />
@@ -542,12 +561,16 @@ export function DownloadsPage() {
           <div className="inner-highlight space-y-8 rounded-xl border border-white/14 bg-surface-container p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_8px_32px_rgba(0,0,0,0.45)] md:p-8">
             <h3 className="flex items-center gap-2 text-lg font-bold text-primary">
               <span className="material-symbols-outlined">tune</span>
-              下载选项
+              {isZh ? '下载选项' : 'Download Options'}
             </h3>
             <div className="space-y-3">
               <LabelWithHint
                 htmlFor="download-url"
-                hintSummary="视频链接：每行一条；多行按顺序排队，间隔见「批量间隔」"
+                hintSummary={
+                  isZh
+                    ? '视频链接：每行一条；多行按顺序排队，间隔见「批量间隔」'
+                    : 'Video URLs: one per line; queued by batch interval'
+                }
                 hint={
                   <div className="space-y-2">
                     <p>
@@ -559,13 +582,17 @@ export function DownloadsPage() {
                   </div>
                 }
               >
-                视频链接
+                {isZh ? '视频链接' : 'Video URL'}
               </LabelWithHint>
               <textarea
                 id="download-url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="每行一个链接（多行将排队依次下载）"
+                placeholder={
+                  isZh
+                    ? '每行一个链接（多行将排队依次下载）'
+                    : 'One URL per line (multiple lines will be queued)'
+                }
                 rows={5}
                 className="custom-scrollbar w-full min-h-[140px] resize-y rounded-lg border border-white/12 bg-surface-container-high px-4 py-4 font-mono text-sm leading-relaxed text-on-surface placeholder:text-on-surface-variant/30 focus:outline-none focus:ring-2 focus:ring-white/35 break-all"
               />
@@ -574,7 +601,7 @@ export function DownloadsPage() {
               <div className="space-y-6">
                 <div className="space-y-3">
                   <label className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/92">
-                    画质
+                    {isZh ? '画质' : 'Quality'}
                   </label>
                   <div className="grid grid-cols-3 gap-2">
                     {QUALITIES.map((q) => (
@@ -595,7 +622,11 @@ export function DownloadsPage() {
                 </div>
                 <div className="space-y-3">
                   <LabelWithHint
-                    hintSummary="默认不下载封面。勾选后与视频同目录保存；需本机已安装 ffmpeg 供转码"
+                    hintSummary={
+                      isZh
+                        ? '默认不下载封面。勾选后与视频同目录保存；需本机已安装 ffmpeg 供转码'
+                        : 'Cover image is off by default; requires ffmpeg'
+                    }
                     hint={
                       <p>
                         默认关闭。勾选后由 yt-dlp
@@ -604,7 +635,7 @@ export function DownloadsPage() {
                       </p>
                     }
                   >
-                    封面图
+                    {isZh ? '封面图' : 'Cover Image'}
                   </LabelWithHint>
                   <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/10 bg-surface-container-highest px-3 py-2.5 transition-colors hover:border-white/16">
                     <input
@@ -615,7 +646,7 @@ export function DownloadsPage() {
                       className="h-4 w-4 rounded border-white/20 bg-surface-container-high text-primary focus:ring-2 focus:ring-white/35"
                     />
                     <span className="text-sm font-bold text-on-surface">
-                      下载视频封面
+                      {isZh ? '下载视频封面' : 'Download thumbnail image'}
                     </span>
                   </label>
                   {saveCoverImage ? (
@@ -646,7 +677,11 @@ export function DownloadsPage() {
               <div className="space-y-6">
                 <div className="space-y-3">
                   <LabelWithHint
-                    hintSummary="批量间隔：仅多行时生效；上一条结束后的随机等待秒数"
+                    hintSummary={
+                      isZh
+                        ? '批量间隔：仅多行时生效；上一条结束后的随机等待秒数'
+                        : 'Batch interval: random wait between queued tasks'
+                    }
                     hint={
                       <p>
                         仅多行任务时：上一条下载结束（含失败）后，再在「下限～上限」之间随机等待，随后发起下一条。两数相同即固定间隔；均为 0
@@ -654,7 +689,7 @@ export function DownloadsPage() {
                       </p>
                     }
                   >
-                    批量间隔（秒）
+                    {isZh ? '批量间隔（秒）' : 'Batch Interval (sec)'}
                   </LabelWithHint>
                   <div className="flex items-center gap-2">
                     <input
@@ -667,7 +702,7 @@ export function DownloadsPage() {
                       onChange={(e) =>
                         setIntervalMinSec(clampIntervalSec(Number(e.target.value)))
                       }
-                      aria-label="随机间隔下限（秒）"
+                      aria-label={isZh ? '随机间隔下限（秒）' : 'Random interval min (sec)'}
                       className="min-w-0 flex-1 rounded-lg border border-white/12 bg-surface-container-high px-3 py-2.5 font-mono text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-white/35"
                     />
                     <span
@@ -686,7 +721,7 @@ export function DownloadsPage() {
                       onChange={(e) =>
                         setIntervalMaxSec(clampIntervalSec(Number(e.target.value)))
                       }
-                      aria-label="随机间隔上限（秒）"
+                      aria-label={isZh ? '随机间隔上限（秒）' : 'Random interval max (sec)'}
                       className="min-w-0 flex-1 rounded-lg border border-white/12 bg-surface-container-high px-3 py-2.5 font-mono text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-white/35"
                     />
                   </div>
@@ -696,11 +731,19 @@ export function DownloadsPage() {
 
             <div className="space-y-3">
               <LabelWithHint
-                hintSummary="保存路径：单行链接时用 yt-dlp 识别频道并对照订阅与标签目录；可改默认目录"
+                hintSummary={
+                  isZh
+                    ? '保存路径：单行链接时用 yt-dlp 识别频道并对照订阅与标签目录；可改默认目录'
+                    : 'Save path: auto-detect for single URL; editable'
+                }
                 hint={
                   <div className="space-y-2">
                     {suggestPending ? (
-                      <p className="text-on-surface-variant">正在识别频道与保存目录…</p>
+                      <p className="text-on-surface-variant">
+                        {isZh
+                          ? '正在识别频道与保存目录…'
+                          : 'Recognizing channel and save directory...'}
+                      </p>
                     ) : null}
                     {urlSuggestHint ? (
                       <p className="text-primary/95">{urlSuggestHint}</p>
@@ -709,7 +752,8 @@ export function DownloadsPage() {
                       单行 YouTube 链接时会自动识别频道并对照「频道」订阅：若该频道标签在设置里映射了目录，会将路径填入上方框内。实际文件写在运行后端的电脑上。
                     </p>
                     <p className="break-all text-on-surface-variant">
-                      当前路径：{downloadPath || '加载中…'}
+                      {isZh ? '当前路径：' : 'Current path: '}
+                      {downloadPath || (isZh ? '加载中…' : 'Loading...')}
                     </p>
                     <div className="flex flex-wrap gap-2 pt-0.5">
                       <button
@@ -717,15 +761,22 @@ export function DownloadsPage() {
                         className="text-primary hover:underline"
                         onClick={() => {
                           void openDownloadDirInFileManager().catch((e: Error) => {
-                            setMsg(e.message || '无法打开文件夹')
+                            setMsg(
+                              e.message
+                              || (isZh ? '无法打开文件夹' : 'Unable to open folder'),
+                            )
                           })
                         }}
                       >
-                        在资源管理器中打开当前目录
+                        {isZh
+                          ? '在资源管理器中打开当前目录'
+                          : 'Open current folder in file manager'}
                       </button>
                       <span className="text-on-surface-variant">·</span>
                       <Link to="/settings" className="text-primary hover:underline">
-                        前往设置修改默认路径
+                        {isZh
+                          ? '前往设置修改默认路径'
+                          : 'Go to settings to change default path'}
                       </Link>
                     </div>
                     <p className="text-on-surface-variant">
@@ -734,15 +785,19 @@ export function DownloadsPage() {
                   </div>
                 }
               >
-                保存路径
+                {isZh ? '保存路径' : 'Save Path'}
               </LabelWithHint>
               <div className="flex w-full gap-2">
                 <div className="min-h-[44px] flex-1 whitespace-pre-wrap break-all rounded-lg border border-white/12 bg-surface-container-high px-4 py-3 font-mono text-xs leading-relaxed text-on-surface-variant">
-                  {downloadPath || '加载中…'}
+                  {downloadPath || (isZh ? '加载中…' : 'Loading...')}
                 </div>
                 <button
                   type="button"
-                  title="在后端电脑上选择下载目录（系统文件夹对话框）"
+                  title={
+                    isZh
+                      ? '在后端电脑上选择下载目录（系统文件夹对话框）'
+                      : 'Choose download directory on backend machine'
+                  }
                   onClick={() => {
                     void (async () => {
                       try {
@@ -753,7 +808,10 @@ export function DownloadsPage() {
                           refreshGlobalStudio()
                         }
                       } catch (e) {
-                        setMsg((e as Error).message || '无法选择目录')
+                        setMsg(
+                          (e as Error).message
+                          || (isZh ? '无法选择目录' : 'Unable to choose directory'),
+                        )
                       }
                     })()
                   }}
@@ -775,13 +833,15 @@ export function DownloadsPage() {
               disabled={startDownloadLocked}
               title={
                 busy || hasActiveQueueDownload
-                  ? '当前有下载任务进行中'
+                  ? (isZh ? '当前有下载任务进行中' : 'A download is in progress')
                   : trimmedUrlLines.length === 0
-                    ? '请先输入至少一条视频链接'
+                    ? (isZh ? '请先输入至少一条视频链接' : 'Please input at least one URL')
                     : !settingsLoaded || !downloadPath.trim()
-                      ? '正在加载默认保存路径…'
+                      ? (isZh ? '正在加载默认保存路径…' : 'Loading default save path...')
                       : suggestPending
-                        ? '正在识别频道与保存目录…'
+                        ? (isZh
+                          ? '正在识别频道与保存目录…'
+                          : 'Recognizing channel and folder...')
                         : undefined
               }
               onClick={() => void queueDownload()}
@@ -797,7 +857,7 @@ export function DownloadsPage() {
               >
                 play_arrow
               </span>
-              开始下载
+              {isZh ? '开始下载' : 'Start Download'}
             </button>
 
             {interTaskWait ? (
@@ -814,9 +874,9 @@ export function DownloadsPage() {
                 </span>
                 <div className="min-w-0 flex-1 space-y-2">
                   <p className="text-xs text-on-surface">
-                    随机间隔倒计时
+                    {isZh ? '随机间隔倒计时' : 'Random interval countdown'}
                     <span className="ml-2 font-mono tabular-nums text-primary">
-                      {(interTaskWait.leftMs / 1000).toFixed(1)} 秒
+                      {(interTaskWait.leftMs / 1000).toFixed(1)} {isZh ? '秒' : 's'}
                     </span>
                   </p>
                   <div className="h-1 w-full overflow-hidden rounded-full bg-surface-container-highest">
@@ -840,7 +900,11 @@ export function DownloadsPage() {
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <LabelWithHint
                   hintHot={hasDuplicateJobs}
-                  hintSummary="下载队列与重复任务说明"
+                  hintSummary={
+                    isZh
+                      ? '下载队列与重复任务说明'
+                      : 'Download queue and duplicate tasks'
+                  }
                   labelClassName="text-lg font-bold text-on-surface"
                   hint={
                     <div className="space-y-2">
@@ -854,10 +918,10 @@ export function DownloadsPage() {
                     </div>
                   }
                 >
-                  下载队列
+                  {isZh ? '下载队列' : 'Download Queue'}
                 </LabelWithHint>
                 <span className="font-mono text-sm font-normal text-on-surface-variant/40">
-                  {orderedJobs.length} 个任务
+                  {orderedJobs.length} {isZh ? '个任务' : 'tasks'}
                 </span>
               </div>
               <button
@@ -865,7 +929,7 @@ export function DownloadsPage() {
                 onClick={() => void clearAll()}
                 className="text-xs font-bold text-primary transition-all hover:underline"
               >
-                清空队列
+                {isZh ? '清空队列' : 'Clear Queue'}
               </button>
             </div>
 
@@ -873,6 +937,9 @@ export function DownloadsPage() {
               {orderedJobs.length === 0 ? (
                 <p className="text-sm text-on-surface-variant">
                   暂无任务。在上方填写链接并点击「开始下载」。
+                  {isZh
+                    ? '暂无任务。在上方填写链接并点击「开始下载」。'
+                    : 'No tasks yet. Add URLs above and click Start Download.'}
                 </p>
               ) : null}
               {orderedJobs.map((job) => {
@@ -896,7 +963,9 @@ export function DownloadsPage() {
                     tabIndex={canRevealCompleted ? 0 : undefined}
                     title={
                       canRevealCompleted
-                        ? '在文件夹中显示已下载文件'
+                        ? (isZh
+                          ? '在文件夹中显示已下载文件'
+                          : 'Reveal downloaded file in folder')
                         : undefined
                     }
                     onClick={
@@ -957,9 +1026,13 @@ export function DownloadsPage() {
                           {dup ? (
                             <span
                               className="rounded bg-primary/15 px-2 py-0.5 text-[10px] font-bold text-primary"
-                              title="与队列中其他任务指向同一视频或标题相同"
+                              title={
+                                isZh
+                                  ? '与队列中其他任务指向同一视频或标题相同'
+                                  : 'Same video or title as another task'
+                              }
                             >
-                              可能重复
+                              {isZh ? '可能重复' : 'Possible Duplicate'}
                             </span>
                           ) : null}
                           <span className="rounded bg-tertiary-container/10 px-2 py-0.5 font-mono text-[10px] text-tertiary-container">
@@ -981,10 +1054,12 @@ export function DownloadsPage() {
                         <div className="flex justify-between gap-2 font-mono text-[10px] text-on-surface-variant/40">
                           <span className="truncate">
                             {isDone
-                              ? '已完成'
+                              ? (isZh ? '已完成' : 'Completed')
                               : isErr
-                                ? job.error || '失败'
-                                : job.sizeHint || job.progress || '正在开始…'}
+                                ? job.error || (isZh ? '失败' : 'Failed')
+                                : job.sizeHint
+                                  || job.progress
+                                  || (isZh ? '正在开始…' : 'Starting...')}
                           </span>
                           <span className="shrink-0">
                             {isWorking && job.speed
@@ -992,7 +1067,7 @@ export function DownloadsPage() {
                               : isWorking
                                 ? '…'
                                 : isDone
-                                  ? '就绪'
+                                  ? (isZh ? '就绪' : 'Ready')
                                   : ''}
                           </span>
                         </div>
@@ -1005,7 +1080,7 @@ export function DownloadsPage() {
                         void removeJob(job.id)
                       }}
                       className="shrink-0 p-2 text-on-surface-variant transition-colors hover:text-error"
-                      aria-label="从队列移除"
+                      aria-label={isZh ? '从队列移除' : 'Remove from queue'}
                     >
                       <span className="material-symbols-outlined">close</span>
                     </button>

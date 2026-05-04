@@ -53,11 +53,11 @@
     "tags": [
       "Lego"
     ],
-    "notificationsMuted": false,
+    "notificationsMuted": true,
     "channelUrl": "https://www.youtube.com/channel/UCMwLSL9AQURAwB9YrYz57jw",
     "description": "At YourBricksLAB,  LEGO isn’t just about building—it’s about innovation! 🚀 Every new experiment unlocks fresh possibilities, leading to exciting discoveries in engineering and creativity. Push the limits, explore the unknown, and build the future—one brick LEGO at a time! 🔧✨",
     "videoCountLabel": "—",
-    "updatedAt": 1774563959426
+    "updatedAt": 1775879854455
   },
   {
     "id": "8ad9daa3-d482-4926-887f-ce49ffc8d9c2",
@@ -83,11 +83,11 @@
     "tags": [
       "RC工程车"
     ],
-    "notificationsMuted": true,
+    "notificationsMuted": false,
     "channelUrl": "https://www.youtube.com/channel/UCXjZurGqjCbZW9kRpjn7Rkw",
     "description": "Welcome...\n\n This is my RC Channel on youtube. \nShowing all kind of radio controlled ACTION, RC Helicopter, RC Planes, RC Special machinery, RC Trucks and Construction equipment,\ne.g. construction machinery like articulated trucks, wheel loaders, excavators, dozers fork lifts and more rc vehicles.\n I will always do my best to entertain you and I appreciate, if you let me know,  you like the videos. \n\n\n\n \n\n\nTHANK YOU SOOO MUCH FOR YOUR SUBSCRIBE!\n\nI will give my best for you every day!\n\n\nPlease give me your feedback - thx! \n\nDon´t forget to SUBSCRIBE and give me a COMMENT!\n\nBest wishes from Germany\n\nChristopher Wenzel,\nMitglied im bdfj, Bundesvereinigung der Fachjournalisten e.V., DE-711759-003\nMember of the German Association of Journalists,\nChristianenzell 1, 07356 Bad Lobenstein, Germany\n\nTel: 0151 74515275\nMail: info-SRS-RC@gmx.de",
     "videoCountLabel": "—",
-    "updatedAt": 1774620306930
+    "updatedAt": 1775879832654
   },
   {
     "id": "dfe1b2bf-e0da-4dca-b86f-c2b1d2eed6d0",
@@ -98,10 +98,25 @@
     "tags": [
       "漂移车"
     ],
-    "notificationsMuted": false,
+    "notificationsMuted": true,
     "channelUrl": "https://www.youtube.com/channel/UCB-7LMovHmwxVK1FfNvKHFQ",
     "description": "RC cars, drifting, stunts and other cool stuff!\nBuy the RC cars I use at RCDriftTok.com",
     "videoCountLabel": "—",
-    "updatedAt": 1774620288659
+    "updatedAt": 1775879834648
+  },
+  {
+    "id": "0a89d391-ab6c-4eda-be8b-47abb8c7c319",
+    "name": "Restoration",
+    "handle": "@Restoration",
+    "subscriberLabel": "1.6M subs",
+    "avatarUrl": "https://yt3.googleusercontent.com/ytc/AIdro_lbfjVLl97wAXgjC4oyC0QIYS6xqdLXfbA2NhiNo9LnrQ=s0",
+    "tags": [
+      "玩具车修复"
+    ],
+    "notificationsMuted": false,
+    "channelUrl": "https://www.youtube.com/channel/UCzoKvjXr87KFhDw7sWLWelw",
+    "description": "Here, We Restore abandoned and Destroyed Model Cars. We teach and spread the Message of Restoration, Recycling and Renovation of Old things instead of throwing them.\nIt's our Passion to make things Better again.\n\nIf you are a BUSINESS owner and want to sponsor your legal products in my videos. You are welcome to contact me at the email given below !",
+    "videoCountLabel": "—",
+    "updatedAt": 1775959764277
   }
 ]

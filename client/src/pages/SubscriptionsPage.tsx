@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAvailableTags } from '../AvailableTagsContext'
+import { useI18n } from '../i18n'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PageHeaderToolbar } from '../components/PageHeaderToolbar'
 import {
@@ -35,6 +36,7 @@ function addTagDeduped(draft: string[], raw: string): string[] {
 }
 
 export function SubscriptionsPage() {
+  const { t } = useI18n()
   const [searchParams, setSearchParams] = useSearchParams()
   const { refresh: refreshGlobalTags, tags: studioTagOptions, tagAccentByLabel } =
     useAvailableTags()
@@ -155,7 +157,7 @@ export function SubscriptionsPage() {
     if (!hit) return
     const frame = requestAnimationFrame(() => {
       document
-        .getElementById(`sub-channel-${raw}`)
+        .querySelector(`[data-sub-channel="${CSS.escape(raw)}"]`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
     return () => cancelAnimationFrame(frame)
@@ -249,7 +251,7 @@ export function SubscriptionsPage() {
       refreshGlobalTags()
       closeTagsEditor()
     } catch (e) {
-      setTagsEditErr((e as Error).message || '保存失败')
+      setTagsEditErr((e as Error).message || t('subscriptions.saveFailed'))
     } finally {
       setTagsEditLoading(false)
     }
@@ -271,7 +273,7 @@ export function SubscriptionsPage() {
       refreshGlobalTags()
       void load()
     } catch (e) {
-      setRemoveErr((e as Error).message || '删除失败')
+      setRemoveErr((e as Error).message || t('subscriptions.deleteFailed'))
     } finally {
       setRemoveLoading(false)
     }
@@ -281,7 +283,7 @@ export function SubscriptionsPage() {
     e.preventDefault()
     const u = addChannelUrl.trim()
     if (!u) {
-      setAddErr('请粘贴 YouTube 频道链接')
+      setAddErr(t('subscriptions.pasteChannelUrl'))
       return
     }
     setAddLoading(true)
@@ -297,7 +299,7 @@ export function SubscriptionsPage() {
       refreshGlobalTags()
       void load()
     } catch (err) {
-      setAddErr((err as Error).message || '添加失败')
+      setAddErr((err as Error).message || t('subscriptions.addFailed'))
     } finally {
       setAddLoading(false)
     }
@@ -308,7 +310,7 @@ export function SubscriptionsPage() {
       <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
         <div className="flex flex-1 items-center gap-8">
           <h2 className="text-3xl font-black tracking-tighter text-on-surface">
-            频道
+            {t('subscriptions.title')}
           </h2>
         </div>
         <PageHeaderToolbar />
@@ -319,7 +321,7 @@ export function SubscriptionsPage() {
           {!loading && tagsUsedOnChannels.length > 0 ? (
             <div className="min-w-0 flex-1 space-y-3">
               <span className="block text-[11px] font-black uppercase tracking-widest text-on-surface-variant/70">
-                按标签筛选
+                {t('subscriptions.filterByTag')}
               </span>
               <div className="flex flex-wrap items-center gap-2">
                 {tagsUsedOnChannels.map((t) => {
@@ -345,7 +347,7 @@ export function SubscriptionsPage() {
                     onClick={clearFeedTag}
                     className="rounded-full border border-outline-variant/25 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant transition-colors hover:bg-surface-container-high"
                   >
-                    清除筛选
+                    {t('subscriptions.clearFilter')}
                   </button>
                 ) : null}
               </div>
@@ -360,12 +362,12 @@ export function SubscriptionsPage() {
             className="red-glow-btn flex shrink-0 items-center justify-center gap-2 self-start rounded-lg px-6 py-2.5 text-sm font-bold text-on-primary-container transition-transform active:scale-95 lg:self-auto"
           >
             <span className="material-symbols-outlined">person_add</span>
-            添加频道
+            {t('subscriptions.addChannel')}
           </button>
         </div>
 
         {loading ? (
-          <p className="text-on-surface-variant">正在加载频道…</p>
+          <p className="text-on-surface-variant">{t('subscriptions.loading')}</p>
         ) : null}
 
         {!loading
@@ -373,37 +375,38 @@ export function SubscriptionsPage() {
         && feedTagFilter
         && visibleChannels.length === 0 ? (
           <p className="mb-8 text-sm text-on-surface-variant">
-            没有带标签「{feedTagFilter}」的频道。{' '}
+            {t('subscriptions.emptyByTag', { tag: feedTagFilter })}{' '}
             <button
               type="button"
               className="font-semibold text-primary hover:underline"
               onClick={clearFeedTag}
             >
-              清除筛选
+              {t('subscriptions.clearFilter')}
             </button>
           </p>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {visibleChannels.map((c) => {
-            const ytChannel = externalYoutubeChannelUrl(c.channelUrl)
-            const avatarWrap = (
-              <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-primary/20 p-0.5">
-                {c.avatarUrl ? (
-                  <img
-                    src={c.avatarUrl}
-                    alt=""
-                    className="h-full w-full rounded-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="h-full w-full rounded-full bg-surface-container-highest" />
-                )}
-              </div>
-            )
-            return (
+        <div className="space-y-14">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {visibleChannels.map((c) => {
+              const ytChannel = externalYoutubeChannelUrl(c.channelUrl)
+              const avatarWrap = (
+                <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-primary/20 p-0.5">
+                  {c.avatarUrl ? (
+                    <img
+                      src={c.avatarUrl}
+                      alt=""
+                      className="h-full w-full rounded-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-full w-full rounded-full bg-surface-container-highest" />
+                  )}
+                </div>
+              )
+              return (
             <div
-              id={`sub-channel-${c.id}`}
+              data-sub-channel={c.id}
               key={c.id}
               className={`group rounded-xl border-t border-surface-bright/20 bg-surface-container-high p-6 shadow-xl transition-[transform,box-shadow] hover:scale-[1.02] ${
                 menuId === c.id ? 'relative z-[20]' : ''
@@ -425,7 +428,7 @@ export function SubscriptionsPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="shrink-0 rounded-full outline-none ring-offset-2 ring-offset-surface transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary/50"
-                      title="在 YouTube 打开频道"
+                      title={t('subscriptions.openOnYoutube')}
                     >
                       {avatarWrap}
                     </a>
@@ -438,7 +441,7 @@ export function SubscriptionsPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="min-w-0 flex-1 rounded-xl p-1 -m-1 outline-none transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-2 focus-visible:ring-primary/50"
-                      title="在 YouTube 打开频道"
+                      title={t('subscriptions.openOnYoutube')}
                     >
                       <h3 className="font-bold text-on-surface group-hover:text-primary">
                         {c.name}
@@ -452,7 +455,7 @@ export function SubscriptionsPage() {
                     <Link
                       to={subscriptionsChannelLink(c.id)}
                       className="min-w-0 flex-1 rounded-xl p-1 -m-1 outline-none transition-colors hover:bg-surface-container-highest/55 focus-visible:ring-2 focus-visible:ring-primary/50"
-                      title="在本页定位到此频道"
+                      title={t('subscriptions.locateOnPage')}
                     >
                       <h3 className="font-bold text-on-surface group-hover:text-primary">
                         {c.name}
@@ -481,7 +484,7 @@ export function SubscriptionsPage() {
                         onClick={() => openRemoveConfirm(c)}
                         className="w-full px-3 py-2 text-left text-xs text-error hover:bg-error/10"
                       >
-                        移除频道
+                        {t('subscriptions.removeChannel')}
                       </button>
                     </div>
                   ) : null}
@@ -501,7 +504,7 @@ export function SubscriptionsPage() {
                     <button
                       key={`${c.id}-${tag}-${i}`}
                       type="button"
-                      title="按此标签筛选"
+                      title={t('subscriptions.tagFilterTitle')}
                       onClick={() => selectFeedTag(tag)}
                       className={`rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wider ${cls} ${
                         selected ? tagFeedFilterSelectedOverlayClass : ''
@@ -519,7 +522,7 @@ export function SubscriptionsPage() {
                   className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-outline-variant/20 py-2 text-xs font-bold transition-colors hover:bg-surface-container-highest"
                 >
                   <span className="material-symbols-outlined text-sm">edit</span>
-                  编辑标签
+                  {t('subscriptions.editTags')}
                 </button>
                 <button
                   type="button"
@@ -528,8 +531,8 @@ export function SubscriptionsPage() {
                   onClick={() => void toggleNotifications(c)}
                   title={
                     c.notificationsMuted
-                      ? '已关闭：该频道不显示在首页，点击开启'
-                      : '已开启：在首页展示该频道更新，点击关闭'
+                      ? t('subscriptions.notificationsMuted')
+                      : t('subscriptions.notificationsEnabled')
                   }
                   className={`relative h-7 w-12 shrink-0 rounded-full border-2 p-0.5 transition-[box-shadow,background-color,border-color] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 ${
                     c.notificationsMuted
@@ -548,8 +551,9 @@ export function SubscriptionsPage() {
                 </button>
               </div>
             </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       </section>
 
@@ -572,7 +576,7 @@ export function SubscriptionsPage() {
                 id="tags-edit-title"
                 className="text-lg font-bold text-primary"
               >
-                编辑标签
+                {t('subscriptions.tagsEditorTitle')}
               </h3>
               <button
                 type="button"
@@ -587,8 +591,7 @@ export function SubscriptionsPage() {
               {tagsEditChannel.name}
             </p>
             <p className="mb-4 text-[11px] leading-relaxed text-on-surface-variant/80">
-              从列表选择已有标签，或在输入框输入新标签后按 Enter
-              / 点「添加」。已选标签可点 × 移除。
+              {t('subscriptions.tagsEditorHint')}
             </p>
 
             {tagsDraft.length > 0 ? (
@@ -608,7 +611,7 @@ export function SubscriptionsPage() {
                           setTagsDraft((prev) => prev.filter((_, j) => j !== i))
                         }
                         className="-mr-0.5 rounded-full p-0.5 hover:bg-black/10"
-                        aria-label={`移除 ${tag}`}
+                        aria-label={t('subscriptions.removeTag', { tag })}
                       >
                         <span className="material-symbols-outlined text-[14px] leading-none">
                           close
@@ -636,7 +639,7 @@ export function SubscriptionsPage() {
                       addTagFromInput()
                     }
                   }}
-                  placeholder="搜索或输入新标签…"
+                  placeholder={t('subscriptions.searchOrAddTag')}
                   disabled={tagsEditLoading}
                   className="min-w-0 flex-1 rounded-lg border-0 bg-surface-container-lowest px-3 py-2 text-sm text-on-surface placeholder:text-on-surface-variant/40"
                   aria-autocomplete="list"
@@ -648,7 +651,7 @@ export function SubscriptionsPage() {
                   onClick={addTagFromInput}
                   className="shrink-0 rounded-lg border border-outline-variant/20 px-3 py-2 text-xs font-bold text-primary transition-colors hover:bg-surface-container-high disabled:opacity-40"
                 >
-                  添加
+                  {t('subscriptions.add')}
                 </button>
               </div>
               {tagComboOpen && filteredPickTags.length ? (
@@ -684,7 +687,7 @@ export function SubscriptionsPage() {
                 disabled={tagsEditLoading}
                 className="flex-1 rounded-lg border border-outline-variant/20 py-2.5 text-sm font-bold text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:opacity-50"
               >
-                取消
+                {t('subscriptions.cancel')}
               </button>
               <button
                 type="button"
@@ -692,7 +695,9 @@ export function SubscriptionsPage() {
                 onClick={() => void saveTagsEdit()}
                 className="red-glow-btn flex-1 rounded-lg py-2.5 text-sm font-bold text-on-primary-container disabled:opacity-50"
               >
-                {tagsEditLoading ? '保存中…' : '保存'}
+                {tagsEditLoading
+                  ? t('subscriptions.saving')
+                  : t('subscriptions.save')}
               </button>
             </div>
           </div>
@@ -707,7 +712,9 @@ export function SubscriptionsPage() {
         >
           <div className="inner-highlight w-full max-w-md rounded-xl border border-white/16 bg-surface-container p-6 shadow-[0_24px_80px_rgba(0,0,0,0.75)] ring-1 ring-white/10">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-on-surface">添加频道</h3>
+              <h3 className="text-lg font-bold text-on-surface">
+                {t('subscriptions.addChannelTitle')}
+              </h3>
               <button
                 type="button"
                 onClick={() => {
@@ -720,20 +727,12 @@ export function SubscriptionsPage() {
               </button>
             </div>
             <p className="mb-3 text-xs leading-relaxed text-on-surface-variant">
-              粘贴 YouTube 频道链接（如{' '}
-              <span className="font-mono text-[10px] text-primary/90">
-                youtube.com/@handle
-              </span>{' '}
-              或{' '}
-              <span className="font-mono text-[10px] text-primary/90">
-                /channel/UC…
-              </span>
-              ），服务端会用 yt-dlp 拉取头像、订阅数、视频数与简介。
+              {t('subscriptions.addChannelHint')}
             </p>
             <form onSubmit={(e) => void submitAdd(e)} className="space-y-3">
               <textarea
                 rows={3}
-                placeholder="https://www.youtube.com/@…"
+                placeholder={t('subscriptions.addChannelPlaceholder')}
                 value={addChannelUrl}
                 onChange={(e) => setAddChannelUrl(e.target.value)}
                 className="custom-scrollbar w-full resize-y rounded-lg border border-white/18 bg-surface-container-high px-3 py-2.5 font-mono text-xs text-on-surface shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] placeholder:text-on-surface-variant/45 focus:border-white/28 focus:outline-none focus:ring-2 focus:ring-white/22"
@@ -746,7 +745,9 @@ export function SubscriptionsPage() {
                 disabled={addLoading}
                 className="red-glow-btn mt-2 w-full rounded-lg py-3 text-sm font-bold text-on-primary-container disabled:opacity-50"
               >
-                {addLoading ? '正在拉取频道信息…' : '添加频道'}
+                {addLoading
+                  ? t('subscriptions.fetchingChannel')
+                  : t('subscriptions.addChannel')}
               </button>
             </form>
           </div>
@@ -757,23 +758,25 @@ export function SubscriptionsPage() {
         <button
           type="button"
           className="fixed inset-0 z-[15] cursor-default bg-transparent"
-          aria-label="关闭菜单"
+          aria-label={t('subscriptions.closeMenu')}
           onClick={() => setMenuId(null)}
         />
       ) : null}
 
       <ConfirmDialog
         open={removeTarget != null}
-        title="移除订阅频道"
+        title={t('subscriptions.removeSubscriptionTitle')}
         description={
           removeErr
             ? removeErr
             : removeTarget
-              ? `确定从订阅中移除「${removeTarget.name}」？此操作不可撤销。`
+              ? t('subscriptions.removeSubscriptionConfirm', {
+                name: removeTarget.name,
+              })
               : ''
         }
-        confirmLabel="移除"
-        cancelLabel="取消"
+        confirmLabel={t('subscriptions.remove')}
+        cancelLabel={t('subscriptions.cancel')}
         variant="danger"
         loading={removeLoading}
         onConfirm={() => void confirmRemoveChannel()}

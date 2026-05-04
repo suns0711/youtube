@@ -1,8 +1,10 @@
 import { Link, Outlet } from 'react-router-dom'
 import { AvailableTagsProvider, useAvailableTags } from '../AvailableTagsContext'
+import { useI18n } from '../i18n'
 import { Sidebar } from './Sidebar'
 
 function DownloadDirWarningBanner() {
+  const { t } = useI18n()
   const { downloadDirWarning } = useAvailableTags()
   if (!downloadDirWarning) return null
   return (
@@ -10,14 +12,14 @@ function DownloadDirWarningBanner() {
       className="border-b border-primary/35 bg-primary/12 px-6 py-3 text-sm text-on-surface md:px-10"
       role="status"
     >
-      <span className="font-semibold text-primary">下载目录</span>
+      <span className="font-semibold text-primary">{t('layout.downloadDir')}</span>
       <span className="mx-2 text-on-surface-variant">·</span>
       <span>{downloadDirWarning}</span>
       <Link
         to="/settings"
         className="ml-3 font-bold text-primary underline-offset-2 hover:underline"
       >
-        前往设置
+        {t('layout.goToSettings')}
       </Link>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useI18n } from '../i18n'
 
 type ConfirmDialogProps = {
   open: boolean
@@ -17,13 +18,16 @@ export function ConfirmDialog({
   open,
   title,
   description,
-  confirmLabel = '确定',
-  cancelLabel = '取消',
+  confirmLabel,
+  cancelLabel,
   variant = 'primary',
   loading = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useI18n()
+  const resolvedConfirmLabel = confirmLabel ?? t('common.confirm')
+  const resolvedCancelLabel = cancelLabel ?? t('common.cancel')
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -51,7 +55,7 @@ export function ConfirmDialog({
       <button
         type="button"
         className="absolute inset-0 cursor-default"
-        aria-label="关闭"
+        aria-label={t('common.close')}
         onClick={onCancel}
       />
       <div className="relative w-full max-w-md rounded-xl border border-outline-variant/20 bg-surface-container-low p-6 shadow-2xl inner-highlight">
@@ -84,7 +88,7 @@ export function ConfirmDialog({
             onClick={onCancel}
             className="rounded-lg px-5 py-2.5 text-sm font-bold text-on-surface-variant transition-colors hover:bg-surface-container-highest disabled:opacity-40"
           >
-            {cancelLabel}
+            {resolvedCancelLabel}
           </button>
           <button
             type="button"
@@ -92,7 +96,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             className={`rounded-lg px-5 py-2.5 text-sm font-bold transition-all active:scale-[0.98] disabled:opacity-50 ${confirmClass}`}
           >
-            {loading ? '处理中…' : confirmLabel}
+            {loading ? t('common.processing') : resolvedConfirmLabel}
           </button>
         </div>
       </div>

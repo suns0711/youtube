@@ -11,6 +11,7 @@ import {
   setStudioUser,
   STUDIO_USERS_CHANGED_EVENT,
 } from '../api'
+import { useI18n } from '../i18n'
 import { studioUserAvatarUrl } from '../lib/studioUserAvatar'
 
 const sizeClass = {
@@ -27,6 +28,7 @@ type Props = {
 
 /** 顶栏右侧：头像 + 用户 id，点击展开切换账号 */
 export function HeaderStudioUser({ size = 'md', className = '' }: Props) {
+  const { t } = useI18n()
   const studioUser = getStudioUser()
   const [open, setOpen] = useState(false)
   const [userOptions, setUserOptions] = useState<string[]>(() => [
@@ -80,7 +82,7 @@ export function HeaderStudioUser({ size = 'md', className = '' }: Props) {
         className="-mr-1 flex items-center gap-2 rounded-full py-1 pl-1 pr-2 text-left transition-colors hover:bg-surface-container-low/80"
         aria-expanded={open}
         aria-haspopup="true"
-        title={`切换账号（当前 ${studioUser}）`}
+        title={t('header.switchAccountCurrent', { id: studioUser })}
       >
         <div
           className={`${sizeClass[size]} shrink-0 overflow-hidden rounded-full border`}
@@ -106,7 +108,7 @@ export function HeaderStudioUser({ size = 'md', className = '' }: Props) {
       {open ? (
         <div className="absolute right-0 top-full z-[200] mt-1 w-[11.5rem] rounded-xl border border-outline-variant/20 bg-surface-container-low py-1 shadow-xl">
           <p className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-outline">
-            切换账号
+            {t('header.switchAccount')}
           </p>
           {userOptions.map((id) => (
             <button

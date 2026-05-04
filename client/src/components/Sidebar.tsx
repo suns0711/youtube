@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAvailableTags } from '../AvailableTagsContext'
 import { useDownloadQueueBadge } from '../DownloadQueueBadgeContext'
+import { useI18n } from '../i18n'
 import {
   DOWNLOAD_QUEUE_BADGE_DOT_CLASS,
   downloadsPageQueueHref,
@@ -35,6 +36,7 @@ function readSidebarCollapsed(): boolean {
 }
 
 export function Sidebar() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [searchParams] = useSearchParams()
@@ -90,7 +92,7 @@ export function Sidebar() {
               onClick={toggleCollapsed}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary"
               aria-expanded={false}
-              aria-label="展开侧栏"
+              aria-label={t('a11y.expandSidebar')}
             >
               <span className="material-symbols-outlined text-xl">chevron_right</span>
             </button>
@@ -98,7 +100,7 @@ export function Sidebar() {
               type="button"
               onClick={() => navigate('/')}
               className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary"
-              title="首页"
+              title={t('nav.home')}
             >
               <img
                 src={LOGO_IMG}
@@ -133,7 +135,7 @@ export function Sidebar() {
               onClick={toggleCollapsed}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary"
               aria-expanded
-              aria-label="收起侧栏"
+              aria-label={t('a11y.collapseSidebar')}
             >
               <span className="material-symbols-outlined text-xl">chevron_left</span>
             </button>
@@ -145,15 +147,15 @@ export function Sidebar() {
         <NavLink
           to="/"
           end
-          title={collapsed ? '首页' : undefined}
+          title={collapsed ? t('nav.home') : undefined}
           className={({ isActive }) => `${navClass} ${isActive ? active : inactive}`}
         >
           <span className="material-symbols-outlined shrink-0">video_library</span>
-          {!collapsed ? '首页' : null}
+          {!collapsed ? t('nav.home') : null}
         </NavLink>
         <NavLink
           to={downloadsPageQueueHref()}
-          title={collapsed ? '下载' : undefined}
+          title={collapsed ? t('nav.downloads') : undefined}
           className={({ isActive }) => `${navClass} ${isActive ? active : inactive}`}
           onClick={() => acknowledgeDownloadBadge()}
         >
@@ -168,29 +170,29 @@ export function Sidebar() {
               />
             ) : null}
           </span>
-          {!collapsed ? '下载' : null}
+          {!collapsed ? t('nav.downloads') : null}
         </NavLink>
         <NavLink
           to="/subscriptions"
-          title={collapsed ? '频道' : undefined}
+          title={collapsed ? t('nav.channels') : undefined}
           className={({ isActive }) => `${navClass} ${isActive ? active : inactive}`}
         >
           <span className="material-symbols-outlined shrink-0">subscriptions</span>
-          {!collapsed ? '频道' : null}
+          {!collapsed ? t('nav.channels') : null}
         </NavLink>
         <NavLink
           to="/tags"
-          title={collapsed ? '标签' : undefined}
+          title={collapsed ? t('nav.tags') : undefined}
           className={({ isActive }) => `${navClass} ${isActive ? active : inactive}`}
         >
           <span className="material-symbols-outlined shrink-0">sell</span>
-          {!collapsed ? '标签' : null}
+          {!collapsed ? t('nav.tags') : null}
         </NavLink>
 
         {!collapsed && showFeedTagFilters ? (
           <div className="mt-8 px-4">
             <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-outline">
-              按标签筛选
+              {t('nav.filterByTag')}
             </p>
             <div className="flex flex-wrap gap-2">
               {filterTags.map((t) => {
@@ -221,13 +223,13 @@ export function Sidebar() {
       >
         <NavLink
           to="/settings"
-          title={collapsed ? '设置' : undefined}
+          title={collapsed ? t('nav.settings') : undefined}
           className={({ isActive }) =>
             `${navClass} ${isActive ? active : inactive}`
           }
         >
           <span className="material-symbols-outlined shrink-0">settings</span>
-          {!collapsed ? '设置' : null}
+          {!collapsed ? t('nav.settings') : null}
         </NavLink>
       </div>
     </aside>

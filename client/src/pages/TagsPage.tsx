@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { removeStudioTag } from '../api'
 import { useAvailableTags } from '../AvailableTagsContext'
+import { useI18n } from '../i18n'
 import {
   resolveTagAccentId,
   tagAccentPillClass,
@@ -10,6 +11,7 @@ import { PageHeaderToolbar } from '../components/PageHeaderToolbar'
 import { Toast } from '../components/Toast'
 
 export function TagsPage() {
+  const { t } = useI18n()
   const { tags, tagAccentByLabel, error, refresh } = useAvailableTags()
   const [expanded, setExpanded] = useState<string | null>(null)
   const [pendingRemove, setPendingRemove] = useState<string | null>(null)
@@ -19,21 +21,21 @@ export function TagsPage() {
 
   const dismissToast = useCallback(() => setToastMsg(null), [])
 
-  const toggle = (t: string) => {
+  const toggle = (tag: string) => {
     setRemoveErr(null)
-    setExpanded((cur) => (cur === t ? null : t))
+    setExpanded((cur) => (cur === tag ? null : tag))
   }
 
   const confirmRemove = async () => {
     if (!pendingRemove) return
-    const t = pendingRemove
-    setRemoving(t)
+    const tag = pendingRemove
+    setRemoving(tag)
     setRemoveErr(null)
     try {
-      await removeStudioTag(t)
+      await removeStudioTag(tag)
       setPendingRemove(null)
       setExpanded(null)
-      setToastMsg(`已移除标签「${t}」`)
+      setToastMsg(t('tags.removedToast', { tag }))
       refresh()
     } catch (e) {
       setRemoveErr((e as Error).message)
@@ -48,7 +50,7 @@ export function TagsPage() {
       <header className="sticky top-0 z-30 flex w-full items-center justify-between bg-surface px-6 py-6 md:px-10">
         <div className="flex flex-1 items-center gap-8">
           <h2 className="text-3xl font-black tracking-tighter text-on-surface">
-            标签
+            {t('tags.title')}
           </h2>
         </div>
         <PageHeaderToolbar />
@@ -57,44 +59,47 @@ export function TagsPage() {
       <div className="px-6 pb-16 pt-2 md:px-10">
         <div className="mb-10">
           <p className="max-w-2xl text-on-surface-variant">
-            点击标签可展开并移除。移除后该标签将从侧栏、本页与设置中的下拉选项里隐藏，并会从订阅频道与「标签 →
-            文件夹」映射中一并清除。
+            {t('tags.desc')}
           </p>
           {error ? (
-            <p className="mt-2 text-sm text-error">标签列表加载失败：{error}</p>
+            <p className="mt-2 text-sm text-error">
+              {t('tags.loadFailed', { error })}
+            </p>
           ) : null}
           {removeErr ? (
-            <p className="mt-2 text-sm text-error">移除失败：{removeErr}</p>
+            <p className="mt-2 text-sm text-error">
+              {t('tags.removeFailed', { error: removeErr })}
+            </p>
           ) : null}
         </div>
         <div className="flex flex-wrap gap-3">
-          {tags.map((t) => {
-            const isOpen = expanded === t
-            const accent = resolveTagAccentId(t, tagAccentByLabel)
+          {tags.map((tag) => {
+            const isOpen = expanded === tag
+            const accent = resolveTagAccentId(tag, tagAccentByLabel)
             const pill = tagAccentPillClass(accent, isOpen)
             return (
               <div
-                key={t}
+                key={tag}
                 className={`flex items-center gap-1 rounded-full border ${pill}`}
               >
                 <button
                   type="button"
-                  onClick={() => toggle(t)}
+                  onClick={() => toggle(tag)}
                   className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider transition-opacity hover:opacity-90"
                 >
-                  {t}
+                  {tag}
                 </button>
                 {isOpen ? (
                   <button
                     type="button"
-                    disabled={removing === t}
+                    disabled={removing === tag}
                     onClick={(e) => {
                       e.stopPropagation()
                       setRemoveErr(null)
-                      setPendingRemove(t)
+                      setPendingRemove(tag)
                     }}
                     className="mr-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-error transition-colors hover:bg-error/10 disabled:opacity-40"
-                    aria-label={`删除标签 ${t}`}
+                    aria-label={t('tags.deleteAria', { tag })}
                   >
                     <span className="material-symbols-outlined text-lg">
                       delete
@@ -108,14 +113,14 @@ export function TagsPage() {
 
         <ConfirmDialog
           open={pendingRemove !== null}
-          title="移除标签"
+          title={t('tags.removeTitle')}
           description={
             pendingRemove
-              ? `从列表中移除标签「${pendingRemove}」？将同时从订阅频道与文件夹映射中清除该标签。`
+              ? t('tags.removeConfirm', { tag: pendingRemove })
               : ''
           }
-          confirmLabel="移除"
-          cancelLabel="取消"
+          confirmLabel={t('tags.remove')}
+          cancelLabel={t('common.cancel')}
           variant="danger"
           loading={pendingRemove !== null && removing === pendingRemove}
           onCancel={() => {

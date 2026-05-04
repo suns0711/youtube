@@ -233,9 +233,9 @@ export function DownloadsPage() {
   /** 多行时：上一任务完成（或失败）后，再经 [min,max] 秒内随机等待后发起下一任务 */
   const [intervalMinSec, setIntervalMinSec] = useState(5)
   const [intervalMaxSec, setIntervalMaxSec] = useState(20)
-  /** 是否与视频同目录保存封面（默认关闭）；开启后通过 coverFormat 选 .webp / .jpg */
-  const [saveCoverImage, setSaveCoverImage] = useState(false)
-  const [coverFormat, setCoverFormat] = useState<'webp' | 'jpg'>('webp')
+  /** 是否与视频同目录保存封面（默认开启）；开启后通过 coverFormat 选 .jpg / .webp */
+  const [saveCoverImage, setSaveCoverImage] = useState(true)
+  const [coverFormat, setCoverFormat] = useState<'webp' | 'jpg'>('jpg')
   const [downloadPath, setDownloadPath] = useState('')
   /** 默认目录等已从设置拉取（失败也会置 true，路径可能为空） */
   const [settingsLoaded, setSettingsLoaded] = useState(false)

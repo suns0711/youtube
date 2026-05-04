@@ -590,7 +590,7 @@ export function SettingsPage() {
                   </button>
                 </div>
                 <p className="mt-2 text-[11px] uppercase tracking-wider text-on-surface-variant/82">
-                  未命中标签映射时，下载任务默认保存到此目录。选择后需点击底部「保存更改」才会写入服务端。
+                  {t('settings.downloadDirHint')}
                 </p>
               </div>
 
@@ -671,10 +671,7 @@ export function SettingsPage() {
 
               {health?.ok ? (
                 <p className="border-t border-white/10 pt-6 font-mono text-[11px] text-on-surface-variant/82">
-                  引擎：yt-dlp {health.ytDlp} · 可执行文件 {health.binary}
-                  {isZh
-                    ? `引擎：yt-dlp ${health.ytDlp} · 可执行文件 ${health.binary}`
-                    : `Engine: yt-dlp ${health.ytDlp} · Binary ${health.binary}`}
+                  {t('settings.ytDlpEngine', { version: health.ytDlp ?? '', binary: health.binary ?? '' })}
                 </p>
               ) : null}
             </div>

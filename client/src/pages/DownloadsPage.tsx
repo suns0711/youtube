@@ -236,6 +236,8 @@ export function DownloadsPage() {
   /** 是否与视频同目录保存封面（默认开启）；开启后通过 coverFormat 选 .jpg / .webp */
   const [saveCoverImage, setSaveCoverImage] = useState(true)
   const [coverFormat, setCoverFormat] = useState<'webp' | 'jpg'>('jpg')
+  /** 从浏览器获取 cookies，用于下载需要登录的视频 */
+  const [cookiesFromBrowser, setCookiesFromBrowser] = useState<'chrome' | 'safari' | null>(null)
   const [downloadPath, setDownloadPath] = useState('')
   /** 默认目录等已从设置拉取（失败也会置 true，路径可能为空） */
   const [settingsLoaded, setSettingsLoaded] = useState(false)
@@ -493,6 +495,7 @@ export function DownloadsPage() {
         const { jobId } = await startDownload(lines[i], quality, {
           outputDir: downloadPath.trim() || undefined,
           thumbnailFormat: saveCoverImage ? coverFormat : null,
+          cookiesFromBrowser,
         })
         prevJobId = jobId
         setPollIds((s) => new Set(s).add(jobId))
@@ -672,6 +675,59 @@ export function DownloadsPage() {
                       ))}
                     </div>
                   ) : null}
+                </div>
+                <div className="space-y-3">
+                  <LabelWithHint
+                    hintSummary={
+                      isZh
+                        ? '浏览器 Cookies：从 Chrome 或 Safari 获取登录状态，用于下载会员专属视频'
+                        : 'Browser Cookies: Get login status from Chrome or Safari for member-only videos'
+                    }
+                    hint={
+                      <p>
+                        {isZh
+                          ? '启用后，yt-dlp 将从指定浏览器读取 YouTube 登录 cookies，可下载需要会员订阅的视频。需确保浏览器已登录 YouTube 账户。'
+                          : 'When enabled, yt-dlp will read YouTube login cookies from the specified browser, allowing download of member-only videos. Ensure the browser is logged into YouTube.'}
+                      </p>
+                    }
+                  >
+                    {isZh ? '浏览器 Cookies' : 'Browser Cookies'}
+                  </LabelWithHint>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCookiesFromBrowser(null)}
+                      className={`rounded-lg border px-3 py-2.5 text-xs font-bold transition-all ${
+                        cookiesFromBrowser === null
+                          ? 'border-white/25 bg-primary-container text-on-primary-container shadow-[0_0_0_1px_rgba(255,255,255,0.12)]'
+                          : 'border-white/10 bg-surface-container-highest text-on-surface-variant/55 hover:border-white/16 hover:bg-surface-container-high hover:text-on-surface-variant'
+                      }`}
+                    >
+                      {isZh ? '不使用' : 'None'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCookiesFromBrowser('chrome')}
+                      className={`rounded-lg border px-3 py-2.5 text-xs font-bold transition-all ${
+                        cookiesFromBrowser === 'chrome'
+                          ? 'border-white/25 bg-primary-container text-on-primary-container shadow-[0_0_0_1px_rgba(255,255,255,0.12)]'
+                          : 'border-white/10 bg-surface-container-highest text-on-surface-variant/55 hover:border-white/16 hover:bg-surface-container-high hover:text-on-surface-variant'
+                      }`}
+                    >
+                      Chrome
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCookiesFromBrowser('safari')}
+                      className={`rounded-lg border px-3 py-2.5 text-xs font-bold transition-all ${
+                        cookiesFromBrowser === 'safari'
+                          ? 'border-white/25 bg-primary-container text-on-primary-container shadow-[0_0_0_1px_rgba(255,255,255,0.12)]'
+                          : 'border-white/10 bg-surface-container-highest text-on-surface-variant/55 hover:border-white/16 hover:bg-surface-container-high hover:text-on-surface-variant'
+                      }`}
+                    >
+                      Safari
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="space-y-6">

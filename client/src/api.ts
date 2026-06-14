@@ -343,6 +343,8 @@ export async function startDownload(
     outputDir?: string
     /** 与封面一并保存时的格式；不传则不下载封面 */
     thumbnailFormat?: 'webp' | 'jpg' | null
+    /** 从浏览器获取 cookies，可选 Chrome 或 Safari */
+    cookiesFromBrowser?: 'chrome' | 'safari' | null
   },
 ): Promise<{ jobId: string }> {
   const body: {
@@ -350,6 +352,7 @@ export async function startDownload(
     quality: string
     outputDir?: string
     thumbnailFormat?: 'webp' | 'jpg'
+    cookiesFromBrowser?: 'chrome' | 'safari'
   } = {
     url,
     quality,
@@ -358,6 +361,8 @@ export async function startDownload(
   if (od) body.outputDir = od
   const tf = opts?.thumbnailFormat
   if (tf === 'webp' || tf === 'jpg') body.thumbnailFormat = tf
+  const cf = opts?.cookiesFromBrowser
+  if (cf === 'chrome' || cf === 'safari') body.cookiesFromBrowser = cf
   const res = await apiFetch(`${base}/api/download`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

@@ -1536,6 +1536,11 @@ app.post('/api/download', (req, res) => {
   if (tfRaw === 'webp' || tfRaw === 'jpg') {
     thumbnailFormat = tfRaw;
   }
+  let cookiesFromBrowser = null;
+  const cfRaw = req.body?.cookiesFromBrowser;
+  if (cfRaw === 'chrome' || cfRaw === 'safari') {
+    cookiesFromBrowser = cfRaw;
+  }
   const jobId = randomUUID();
   /** 先写入系统临时目录，完成后以视频标题迁入目标目录，避免并行任务与 junk 文件夹 */
   const stagingDir = path.join(tmpdir(), `youtube-studio-dl-${jobId}`);
@@ -1610,6 +1615,9 @@ app.post('/api/download', (req, res) => {
     '--no-playlist',
     '--newline',
   ];
+  if (cookiesFromBrowser) {
+    ytdlpArgs.push('--cookies-from-browser', cookiesFromBrowser);
+  }
   if (thumbnailFormat) {
     ytdlpArgs.push(
       '--write-thumbnail',
